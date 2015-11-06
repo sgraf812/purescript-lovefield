@@ -11,7 +11,14 @@
     "output"
   ],
   "dependencies": {
-    "purescript-console": "^0.1.0",
-    "purescript-aff": "^0.13.0"
+    "lovefield": "~2.1.1",
+    "purescript-arraybuffer-types": "~0.2.0",
+    "purescript-aff": "~0.13.0",
+    "purescript-datetime": "~0.9.0",
+    "purescript-nullable": "~0.2.1",
+    "purescript-foreign": "~0.7.0",
+    "purescript-functions": "~0.1.0",
+    "purescript-exists": "~0.2.0",
+    "purescript-leibniz": "~0.1.0"
   }
 }

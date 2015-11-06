@@ -237,7 +237,7 @@ var PS = { };
       return eq(__dict_Eq_7);
   };
   var $$const = function (a) {
-      return function (_67) {
+      return function (_68) {
           return a;
       };
   };
@@ -476,14 +476,14 @@ var PS = { };
   })();
   var maybe = function (b) {
       return function (f) {
-          return function (_335) {
-              if (_335 instanceof Nothing) {
+          return function (_336) {
+              if (_336 instanceof Nothing) {
                   return b;
               };
-              if (_335 instanceof Just) {
-                  return f(_335.value0);
+              if (_336 instanceof Just) {
+                  return f(_336.value0);
               };
-              throw new Error("Failed pattern match at Data.Maybe line 26, column 1 - line 27, column 1: " + [ b.constructor.name, f.constructor.name, _335.constructor.name ]);
+              throw new Error("Failed pattern match at Data.Maybe line 26, column 1 - line 27, column 1: " + [ b.constructor.name, f.constructor.name, _336.constructor.name ]);
           };
       };
   };
@@ -503,9 +503,10 @@ var PS = { };
   var Data_Maybe_Last = PS["Data.Maybe.Last"];
   var Data_Monoid = PS["Data.Monoid"];
   var Data_Monoid_Additive = PS["Data.Monoid.Additive"];
-  var Data_Monoid_Dual = PS["Data.Monoid.Dual"];
-  var Data_Monoid_Disj = PS["Data.Monoid.Disj"];
   var Data_Monoid_Conj = PS["Data.Monoid.Conj"];
+  var Data_Monoid_Disj = PS["Data.Monoid.Disj"];
+  var Data_Monoid_Dual = PS["Data.Monoid.Dual"];
+  var Data_Monoid_Endo = PS["Data.Monoid.Endo"];
   var Data_Monoid_Multiplicative = PS["Data.Monoid.Multiplicative"];     
   var Foldable = function (foldMap, foldl, foldr) {
       this.foldMap = foldMap;
@@ -518,21 +519,27 @@ var PS = { };
   var foldl = function (dict) {
       return dict.foldl;
   }; 
-  var foldableArray = new Foldable(function (__dict_Monoid_19) {
-      return function (f) {
-          return function (xs) {
-              return foldr(foldableArray)(function (x) {
-                  return function (acc) {
-                      return Prelude["<>"](__dict_Monoid_19["__superclass_Prelude.Semigroup_0"]())(f(x))(acc);
-                  };
-              })(Data_Monoid.mempty(__dict_Monoid_19))(xs);
+  var foldMapDefaultR = function (__dict_Foldable_20) {
+      return function (__dict_Monoid_21) {
+          return function (f) {
+              return function (xs) {
+                  return foldr(__dict_Foldable_20)(function (x) {
+                      return function (acc) {
+                          return Prelude["<>"](__dict_Monoid_21["__superclass_Prelude.Semigroup_0"]())(f(x))(acc);
+                      };
+                  })(Data_Monoid.mempty(__dict_Monoid_21))(xs);
+              };
           };
       };
+  };
+  var foldableArray = new Foldable(function (__dict_Monoid_22) {
+      return foldMapDefaultR(foldableArray)(__dict_Monoid_22);
   }, $foreign.foldlArray, $foreign.foldrArray);
   var foldMap = function (dict) {
       return dict.foldMap;
   };
   exports["Foldable"] = Foldable;
+  exports["foldMapDefaultR"] = foldMapDefaultR;
   exports["foldMap"] = foldMap;
   exports["foldl"] = foldl;
   exports["foldr"] = foldr;
@@ -618,10 +625,10 @@ var PS = { };
   var Data_Maybe_First = PS["Data.Maybe.First"];
   var Data_Maybe_Last = PS["Data.Maybe.Last"];
   var Data_Monoid_Additive = PS["Data.Monoid.Additive"];
+  var Data_Monoid_Conj = PS["Data.Monoid.Conj"];
+  var Data_Monoid_Disj = PS["Data.Monoid.Disj"];
   var Data_Monoid_Dual = PS["Data.Monoid.Dual"];
   var Data_Monoid_Multiplicative = PS["Data.Monoid.Multiplicative"];
-  var Data_Monoid_Disj = PS["Data.Monoid.Disj"];
-  var Data_Monoid_Conj = PS["Data.Monoid.Conj"];
   var Traversable = function (__superclass_Data$dotFoldable$dotFoldable_1, __superclass_Prelude$dotFunctor_0, sequence, traverse) {
       this["__superclass_Data.Foldable.Foldable_1"] = __superclass_Data$dotFoldable$dotFoldable_1;
       this["__superclass_Prelude.Functor_0"] = __superclass_Prelude$dotFunctor_0;
@@ -630,20 +637,28 @@ var PS = { };
   };
   var traverse = function (dict) {
       return dict.traverse;
-  }; 
+  };
+  var sequenceDefault = function (__dict_Traversable_12) {
+      return function (__dict_Applicative_13) {
+          return function (tma) {
+              return traverse(__dict_Traversable_12)(__dict_Applicative_13)(Prelude.id(Prelude.categoryFn))(tma);
+          };
+      };
+  };
   var traversableArray = new Traversable(function () {
       return Data_Foldable.foldableArray;
   }, function () {
       return Prelude.functorArray;
-  }, function (__dict_Applicative_11) {
-      return traverse(traversableArray)(__dict_Applicative_11)(Prelude.id(Prelude.categoryFn));
-  }, function (__dict_Applicative_10) {
-      return $foreign.traverseArrayImpl(Prelude.apply(__dict_Applicative_10["__superclass_Prelude.Apply_0"]()))(Prelude.map((__dict_Applicative_10["__superclass_Prelude.Apply_0"]())["__superclass_Prelude.Functor_0"]()))(Prelude.pure(__dict_Applicative_10));
+  }, function (__dict_Applicative_15) {
+      return sequenceDefault(traversableArray)(__dict_Applicative_15);
+  }, function (__dict_Applicative_14) {
+      return $foreign.traverseArrayImpl(Prelude.apply(__dict_Applicative_14["__superclass_Prelude.Apply_0"]()))(Prelude.map((__dict_Applicative_14["__superclass_Prelude.Apply_0"]())["__superclass_Prelude.Functor_0"]()))(Prelude.pure(__dict_Applicative_14));
   });
   var sequence = function (dict) {
       return dict.sequence;
   };
   exports["Traversable"] = Traversable;
+  exports["sequenceDefault"] = sequenceDefault;
   exports["sequence"] = sequence;
   exports["traverse"] = traverse;
   exports["traversableArray"] = traversableArray;;
@@ -680,40 +695,40 @@ var PS = { };
       return Right;
   })();
   var functorEither = new Prelude.Functor(function (f) {
-      return function (_420) {
-          if (_420 instanceof Left) {
-              return new Left(_420.value0);
+      return function (_421) {
+          if (_421 instanceof Left) {
+              return new Left(_421.value0);
           };
-          if (_420 instanceof Right) {
-              return new Right(f(_420.value0));
+          if (_421 instanceof Right) {
+              return new Right(f(_421.value0));
           };
-          throw new Error("Failed pattern match at Data.Either line 52, column 1 - line 56, column 1: " + [ f.constructor.name, _420.constructor.name ]);
+          throw new Error("Failed pattern match at Data.Either line 52, column 1 - line 56, column 1: " + [ f.constructor.name, _421.constructor.name ]);
       };
   });
   var either = function (f) {
       return function (g) {
-          return function (_419) {
-              if (_419 instanceof Left) {
-                  return f(_419.value0);
+          return function (_420) {
+              if (_420 instanceof Left) {
+                  return f(_420.value0);
               };
-              if (_419 instanceof Right) {
-                  return g(_419.value0);
+              if (_420 instanceof Right) {
+                  return g(_420.value0);
               };
-              throw new Error("Failed pattern match at Data.Either line 28, column 1 - line 29, column 1: " + [ f.constructor.name, g.constructor.name, _419.constructor.name ]);
+              throw new Error("Failed pattern match at Data.Either line 28, column 1 - line 29, column 1: " + [ f.constructor.name, g.constructor.name, _420.constructor.name ]);
           };
       };
   }; 
   var applyEither = new Prelude.Apply(function () {
       return functorEither;
-  }, function (_422) {
+  }, function (_423) {
       return function (r) {
-          if (_422 instanceof Left) {
-              return new Left(_422.value0);
+          if (_423 instanceof Left) {
+              return new Left(_423.value0);
           };
-          if (_422 instanceof Right) {
-              return Prelude["<$>"](functorEither)(_422.value0)(r);
+          if (_423 instanceof Right) {
+              return Prelude["<$>"](functorEither)(_423.value0)(r);
           };
-          throw new Error("Failed pattern match at Data.Either line 92, column 1 - line 116, column 1: " + [ _422.constructor.name, r.constructor.name ]);
+          throw new Error("Failed pattern match at Data.Either line 92, column 1 - line 116, column 1: " + [ _423.constructor.name, r.constructor.name ]);
       };
   });
   var applicativeEither = new Prelude.Applicative(function () {
@@ -794,8 +809,8 @@ var PS = { };
   var makeAff$prime = function (h) {
       return $foreign._makeAff(h);
   };
-  var launchAff = function (_195) {
-      return runAff(Control_Monad_Eff_Exception.throwException)(Prelude["const"](Prelude.pure(Control_Monad_Eff.applicativeEff)(Prelude.unit)))($foreign._unsafeInterleaveAff(_195));
+  var launchAff = function (_1414) {
+      return runAff(Control_Monad_Eff_Exception.throwException)(Prelude["const"](Prelude.pure(Control_Monad_Eff.applicativeEff)(Prelude.unit)))($foreign._unsafeInterleaveAff(_1414));
   };
   var functorAff = new Prelude.Functor(function (f) {
       return function (fa) {
@@ -875,8 +890,8 @@ var PS = { };
   var Prelude = PS["Prelude"];
   var Control_Monad_Eff = PS["Control.Monad.Eff"];     
   var print = function (__dict_Show_0) {
-      return function (_801) {
-          return $foreign.log(Prelude.show(__dict_Show_0)(_801));
+      return function (_806) {
+          return $foreign.log(Prelude.show(__dict_Show_0)(_806));
       };
   };
   exports["print"] = print;;
@@ -939,7 +954,7 @@ var PS = { };
   var foldM = function (__dict_Monad_10) {
       return function (f) {
           return function (a) {
-              return $foreign["uncons'"](function (_604) {
+              return $foreign["uncons'"](function (_605) {
                   return Prelude["return"](__dict_Monad_10["__superclass_Prelude.Applicative_0"]())(a);
               })(function (b) {
                   return function (bs) {
@@ -971,9 +986,9 @@ var PS = { };
   var $foreign = PS["Data.Either.Unsafe"];
   var Prelude = PS["Prelude"];
   var Data_Either = PS["Data.Either"];     
-  var fromRight = function (_443) {
-      if (_443 instanceof Data_Either.Right) {
-          return _443.value0;
+  var fromRight = function (_444) {
+      if (_444 instanceof Data_Either.Right) {
+          return _444.value0;
       };
       return $foreign.unsafeThrow("Data.Either.Unsafe.fromRight called on Left value");
   };
@@ -1230,8 +1245,8 @@ var PS = { };
   "use strict";
   var Prelude = PS["Prelude"];
   var Unsafe_Coerce = PS["Unsafe.Coerce"];
-  var semigroupoidLeibniz = new Prelude.Semigroupoid(function (_211) {
-      return function (_212) {
+  var semigroupoidLeibniz = new Prelude.Semigroupoid(function (_212) {
+      return function (_213) {
           return Unsafe_Coerce.unsafeCoerce;
       };
   });
@@ -1578,10 +1593,10 @@ var PS = { };
       return Data_Exists.mkExists(new Int(name, Prelude.id(Data_Leibniz.categoryLeibniz)));
   });
   var insertOrReplace = function (db) {
-      return function (_9) {
-          return function (_10) {
+      return function (_684) {
+          return function (_685) {
               return function (values) {
-                  return Control_Monad_Aff.makeAff(Data_Function.runFn5($foreign.insertOrReplaceNative)(db)(_10.value0)(values));
+                  return Control_Monad_Aff.makeAff(Data_Function.runFn5($foreign.insertOrReplaceNative)(db)(_685.value0)(values));
               };
           };
       };
@@ -1590,7 +1605,7 @@ var PS = { };
       return Data_Exists.mkExists(new Nullable(cd, Prelude.id(Data_Leibniz.categoryLeibniz)));
   };
   var intIsNullable = new IsNullable(defaultNullable);
-  var columnName = function (_6) {
+  var columnName = function (_681) {
       var impl = function (cdu) {
           if (cdu instanceof Int) {
               return cdu.value0;
@@ -1618,7 +1633,7 @@ var PS = { };
           };
           throw new Error("Failed pattern match at Lovefield line 200, column 5 - line 201, column 5: " + [ cdu.constructor.name ]);
       };
-      return Data_Exists.runExists(impl)(_6);
+      return Data_Exists.runExists(impl)(_681);
   };
   var column = function (dict) {
       return dict.column;
@@ -1641,7 +1656,7 @@ var PS = { };
       };
   };
   var addColumn = function (tb) {
-      return function (_7) {
+      return function (_682) {
           var impl = function (cdu) {
               if (cdu instanceof Int) {
                   return $foreign.addColumnNative(cdu.value0, "int", tb);
@@ -1666,40 +1681,40 @@ var PS = { };
               };
               if (cdu instanceof Nullable) {
                   return function __do() {
-                      var _0 = addColumn(tb)(cdu.value0)();
-                      return $foreign.addNullable([ columnName(cdu.value0) ], _0)();
+                      var _62 = addColumn(tb)(cdu.value0)();
+                      return $foreign.addNullable([ columnName(cdu.value0) ], _62)();
                   };
               };
               throw new Error("Failed pattern match at Lovefield line 219, column 5 - line 220, column 5: " + [ cdu.constructor.name ]);
           };
-          return Data_Exists.runExists(impl)(_7);
+          return Data_Exists.runExists(impl)(_682);
       };
   };
   var buildTable = function (sb) {
-      return function (_8) {
-          var foreignColumns = Data_Foreign.toForeign(_8.value2);
+      return function (_683) {
+          var foreignColumns = Data_Foreign.toForeign(_683.value2);
           var ks = Data_Either.either(Prelude["const"]([  ]))(Prelude.id(Prelude.categoryFn))(Data_Foreign_Keys.keys(foreignColumns));
           var constraintActions = function (tb) {
-              return Data_Array.foldM(Control_Monad_Eff.monadEff)(addConstraint)(tb)(_8.value1);
+              return Data_Array.foldM(Control_Monad_Eff.monadEff)(addConstraint)(tb)(_683.value1);
           };
-          var columnDescriptions = Prelude.map(Prelude.functorArray)(function (_83) {
-              return Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index["!"](Data_Foreign_Index.indexString)(foreignColumns)(_83)));
+          var columnDescriptions = Prelude.map(Prelude.functorArray)(function (_2287) {
+              return Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index["!"](Data_Foreign_Index.indexString)(foreignColumns)(_2287)));
           })(ks);
           var columnActions = function (tb) {
               return Data_Array.foldM(Control_Monad_Eff.monadEff)(addColumn)(tb)(columnDescriptions);
           };
           return function __do() {
-              var _3 = $foreign.createTableNative(_8.value0, sb)();
-              var _2 = columnActions(_3)();
-              var _1 = constraintActions(_2)();
+              var _65 = $foreign.createTableNative(_683.value0, sb)();
+              var _64 = columnActions(_65)();
+              var _63 = constraintActions(_64)();
               return Prelude.unit;
           };
       };
   };
-  var connect = function (_11) {
-      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)($foreign.createNative(_11.value0, _11.value1)))(function (_4) {
-          return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Data_Traversable.traverse(Data_Traversable.traversableArray)(Control_Monad_Eff.applicativeEff)($foreign.runExistentialTable(buildTable(_4)))(_11.value2)))(function () {
-              return Control_Monad_Aff.makeAff(Data_Function.runFn3($foreign.connectNative)(_4));
+  var connect = function (_686) {
+      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)($foreign.createNative(_686.value0, _686.value1)))(function (_66) {
+          return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Data_Traversable.traverse(Data_Traversable.traversableArray)(Control_Monad_Eff.applicativeEff)($foreign.runExistentialTable(buildTable(_66)))(_686.value2)))(function () {
+              return Control_Monad_Aff.makeAff(Data_Function.runFn3($foreign.connectNative)(_66));
           });
       });
   };
@@ -1749,6 +1764,12 @@ var PS = { };
   var Names = function (x) {
       return x;
   };
+  var value = {
+      id: 1, 
+      name: "Bert", 
+      age: Data_Nullable.toNullable(Data_Maybe.Nothing.value), 
+      bag: Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign("blah")))
+  };
   var names = (function () {
       var constraints = [ new Lovefield.PrimaryKey(new Lovefield.AutoIncrement("id")) ];
       var columnDescription = {
@@ -1760,12 +1781,6 @@ var PS = { };
       return new Lovefield.Table("Names", constraints, columnDescription);
   })();
   var schema = new Lovefield.Schema("MyDB", 1, [ Lovefield.mkExistentialTable(names) ]);
-  var value = {
-      id: 1, 
-      name: "Bert", 
-      age: Data_Nullable.toNullable(Data_Maybe.Nothing.value), 
-      bag: Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign(names)))
-  };
   var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("hi")))(function () {
       return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield.connect(schema))(function (_0) {
           return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("success?")))(function () {

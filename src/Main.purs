@@ -40,7 +40,7 @@ value =
     { id : Identity 1
     , name : Identity "Bert"
     , age : Identity (toNullable Nothing)
-    , bag : Identity (toNullable (Just (toForeign names)))
+    , bag : Identity (toNullable (Just (toForeign "blah")))
     }
 
 schema :: LF.Schema
