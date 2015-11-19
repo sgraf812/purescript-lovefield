@@ -22,16 +22,16 @@ newtype Names f =
     }
 
 names :: LF.Table Names
-names = LF.Table "Names" constraints columnDescription
+names = LF.Table "Names" constraints QueryExpr
   where
     constraints =
       [ LF.PrimaryKey (LF.AutoIncrement "id") ]
-    columnDescription =
+    QueryExpr =
       Names
-        { id : LF.column "id"
-        , name : LF.column "name"
-        , age : LF.nullable (LF.column "age")
-        , bag : LF.column "bag"
+        { id : LF.val "id"
+        , name : LF.val "name"
+        , age : LF.nullable (LF.val "age")
+        , bag : LF.val "bag"
         }
 
 value :: Names Identity
@@ -51,10 +51,11 @@ schema =
     [ LF.mkExistentialTable names
     ]
 
-table :: forall t . LF.Table t -> Query (t LF.QueryExpr)
+
+queryExpr1 = val "Hello!"
 
 query = do
-  Names names <- table T.names
+  Names names <- queryTable T.names
   return names.age
 
 main = launchAff do

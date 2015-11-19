@@ -245,20 +245,3 @@ insertOrReplace
   -> Aff (db :: DB | eff) Unit
 insertOrReplace db (Schema schema _ _) (Table table _ _) values =
   makeAff (runFn5 insertOrReplaceNative db table values)
-
-
-data Query a =
-  From () (Leibniz a (t QueryExpr))
-
-
-queryTable
-  :: forall t
-   . Table t
-  -> Query (t QueryExpr)
-
-runQuery
-  :: forall t
-   . Connection
-  -> Schema
-  -> Query (t QueryExpr)
-  -> t Identity
