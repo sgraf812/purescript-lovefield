@@ -51,6 +51,12 @@ schema =
     [ LF.mkExistentialTable names
     ]
 
+table :: forall t . LF.Table t -> Query (t LF.QueryExpr)
+
+query = do
+  Names names <- table T.names
+  return names.age
+
 main = launchAff do
   liftEff $ print "hi"
   db <- LF.connect schema
