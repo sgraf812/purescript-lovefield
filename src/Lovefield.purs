@@ -2,26 +2,21 @@ module Lovefield where
 
 import Prelude
 import Data.Array (foldM)
-import Data.Date
 import Data.Either
 import Data.Either.Unsafe (fromRight)
-import Data.Exists
-import Data.ArrayBuffer.Types
 import Data.Foreign
-import Data.Nullable
 import Data.Foreign.Keys
 import Data.Foreign.Index
 import Data.Either
 import Data.Identity
-import Data.Leibniz
 import Data.Function
 import Data.Traversable
-import Data.Tuple
 import Control.Monad.Eff
 import Control.Monad.Eff.Class
 import Control.Monad.Eff.Exception
 import Control.Monad.Aff
 import Lovefield.ColumnDescription
+import Lovefield.Internal.Exists
 
 foreign import data DB :: !
 
@@ -30,21 +25,8 @@ data Table columns
   = Table String (Array Constraint) (columns ColumnDescription)
 
 
-foreign import data ExistentialTable :: *
-
-foreign import mkExistentialTable
-  :: forall f
-   . Table f
-  -> ExistentialTable
-
-foreign import runExistentialTable
-  :: forall r
-   . (forall f . Table f -> r)
-  -> ExistentialTable
-  -> r
-
 data Schema
-  = Schema String Int (Array ExistentialTable)
+  = Schema String Int (Array (Exists2 Table))
 
 
 data LFType
@@ -149,7 +131,7 @@ foreign import insertOrReplaceNative
 
 
 columnName :: forall a . ColumnDescription a -> String
-columnName (ColumnDescription cd) = runExists impl cd
+columnName (ColumnDescription cd) = runExists0 impl cd
   where
     impl :: forall b . ColumnDescriptionUniversal a b -> String
     impl cdu =
@@ -168,7 +150,7 @@ addColumn
    . TableBuilder
   -> ColumnDescription a
   -> Eff (db :: DB | eff) TableBuilder
-addColumn tb (ColumnDescription cd) = runExists impl cd
+addColumn tb (ColumnDescription cd) = runExists0 impl cd
   where
     impl :: forall b . ColumnDescriptionUniversal a b -> Eff (db :: DB | eff) TableBuilder
     impl cdu =
@@ -232,7 +214,7 @@ connect
   -> Aff (db :: DB | eff) Connection
 connect (Schema name version tables) = do
   sb <- liftEff $ runFn2 createNative name version
-  liftEff $ traverse (runExistentialTable (buildTable sb)) tables
+  liftEff $ traverse (runExists2 (buildTable sb)) tables
   makeAff (runFn3 connectNative sb)
 
 

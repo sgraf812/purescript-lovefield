@@ -1,16 +1,17 @@
 module Lovefield.ColumnDescription
-  ( ColumnDescription
-  , HasColumnDescription()
-  , IsNullable()
+  ( ColumnDescription(..), ColumnDescriptionUniversal(..)
+  , HasColumnDescription, column
+  , IsNullable, nullable
   ) where
 
 
-import Data.Exists
+import Prelude
 import Data.Nullable
 import Data.ArrayBuffer.Types
 import Data.Leibniz
 import Data.Date
 import Data.Foreign
+import Lovefield.Internal.Exists
 
 
 data ColumnDescriptionUniversal a b
@@ -25,32 +26,32 @@ data ColumnDescriptionUniversal a b
 
 
 newtype ColumnDescription a
-  = ColumnDescription (Exists (ColumnDescriptionUniversal a))
+  = ColumnDescription (Exists0 (ColumnDescriptionUniversal a))
 
 
 class HasColumnDescription a where
   column :: String -> ColumnDescription a
 
 instance intHasColumnDescription :: HasColumnDescription Int where
-  column name = ColumnDescription (mkExists (Int name id))
+  column name = ColumnDescription (mkExists0 (Int name id))
 
 instance numberHasColumnDescription :: HasColumnDescription Number where
-  column name = ColumnDescription (mkExists (Number name id))
+  column name = ColumnDescription (mkExists0 (Number name id))
 
 instance stringHasColumnDescription :: HasColumnDescription String where
-  column name = ColumnDescription (mkExists (String name id))
+  column name = ColumnDescription (mkExists0 (String name id))
 
 instance booleanHasColumnDescription :: HasColumnDescription Boolean where
-  column name = ColumnDescription (mkExists (Boolean name id))
+  column name = ColumnDescription (mkExists0 (Boolean name id))
 
 instance dateHasColumnDescription :: HasColumnDescription Date where
-  column name = ColumnDescription (mkExists (DateTime name id))
+  column name = ColumnDescription (mkExists0 (DateTime name id))
 
 instance arrayBufferHasColumnDescription :: HasColumnDescription (Nullable ArrayBuffer) where
-  column name = ColumnDescription (mkExists (ArrayBuffer name id))
+  column name = ColumnDescription (mkExists0 (ArrayBuffer name id))
 
 instance objectHasColumnDescription :: HasColumnDescription (Nullable Foreign) where
-  column name = ColumnDescription (mkExists (Object name id))
+  column name = ColumnDescription (mkExists0 (Object name id))
 
 
 class IsNullable a where
@@ -58,7 +59,7 @@ class IsNullable a where
 
 defaultNullable :: forall a . ColumnDescription a -> ColumnDescription (Nullable a)
 defaultNullable cd =
-  ColumnDescription (mkExists (Nullable cd id))
+  ColumnDescription (mkExists0 (Nullable cd id))
 
 instance intIsNullable :: IsNullable Int where
   nullable = defaultNullable

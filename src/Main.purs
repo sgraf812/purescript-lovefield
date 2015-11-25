@@ -3,7 +3,6 @@ module Main where
 import Prelude
 import Data.Maybe
 import Data.Either
-import Data.Exists
 import Data.Foreign
 import Data.Nullable
 import Data.Identity
@@ -12,6 +11,9 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Class
 import Control.Monad.Aff
 import qualified Lovefield as LF
+import qualified Lovefield.ColumnDescription (ColumnDescription(), column, nullable) as LF
+import qualified Lovefield.QueryExpr as LF
+import Lovefield.Internal.Exists
 
 newtype Names f =
   Names
@@ -22,16 +24,16 @@ newtype Names f =
     }
 
 names :: LF.Table Names
-names = LF.Table "Names" constraints QueryExpr
+names = LF.Table "Names" constraints columnDescription
   where
     constraints =
       [ LF.PrimaryKey (LF.AutoIncrement "id") ]
-    QueryExpr =
+    columnDescription =
       Names
-        { id : LF.val "id"
-        , name : LF.val "name"
-        , age : LF.nullable (LF.val "age")
-        , bag : LF.val "bag"
+        { id : LF.column "id"
+        , name : LF.column "name"
+        , age : LF.nullable (LF.column "age")
+        , bag : LF.column "bag"
         }
 
 value :: Names Identity
@@ -48,19 +50,21 @@ schema =
   LF.Schema
     "MyDB"
     1
-    [ LF.mkExistentialTable names
+    [ mkExists2 names
     ]
 
+name :: Names Identity -> String
+name (Names names) = runIdentity names.name
 
-queryExpr1 = val "Hello!"
 
-query = do
-  Names names <- queryTable T.names
-  return names.age
+--query1 = pure (LF.val "Hello!")
+
+query2 = LF.queryTable names
 
 main = launchAff do
-  liftEff $ print "hi"
   db <- LF.connect schema
-  liftEff $ print "success?"
+  liftEff $ print "connected"
   LF.insertOrReplace db schema names [ value ]
-  liftEff $ print "success!"
+  liftEff $ print "inserted"
+  result <- LF.runQuery db schema query2
+  liftEff $ print (map name result)

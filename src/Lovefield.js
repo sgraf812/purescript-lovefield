@@ -2,14 +2,6 @@
 
 // module Lovefield
 
-exports.mkExistentialTable = function (value) {
-  return value;
-};
-
-exports.runExistentialTable = function (f) {
-  return f;
-};
-
 exports.createNative = function (name, version) {
   return function () {
     return lf.schema.create(name, version);
