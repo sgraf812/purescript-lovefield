@@ -7,7 +7,8 @@ import Data.Either
 import Data.Either.Unsafe (fromRight)
 import Data.Exists
 import Data.ArrayBuffer.Types
-import Data.Foreign
+import Data.Foreign (Foreign, (!))
+import qualified Data.Foreign as Foreign
 import Data.Nullable
 import Data.Foreign.Keys
 import Data.Foreign.Index
@@ -28,6 +29,38 @@ foreign import data DB :: !
 
 data Table columns
   = Table String (Array Constraint) (columns ColumnDescription)
+
+
+foldOverFieldsDefault
+  :: forall t acc
+   . (forall a . t a -> acc -> acc)
+  -> acc
+  -> columns t
+  -> acc
+foldOverFieldsDefault f acc columns = foldl f' acc keys
+  where
+    foreignColumns =
+      Foreign.toForeign columns
+    keys =
+      Foreign.keys foreignColumns
+    f' key acc = f field acc
+      where
+        field = Foreign.unsafeFromForeign (fromRight (foreignColumns ! key))
+
+
+
+class Huppa columns where
+  foldOverFields
+    :: forall t acc
+     . (forall a . t a -> acc -> acc)
+    -> acc
+    -> columns t
+    -> acc
+  mapContexts
+    :: forall f g
+     . (forall a . f a -> g a)
+    -> t f
+    -> t g
 
 
 foreign import data ExistentialTable :: *
@@ -200,6 +233,13 @@ addConstraint tb constraint =
       runFn2 addForeignKey fk tb
     Unique name columns ->
       runFn3 addUnique name columns tb
+
+
+foreign import mapColumFunctor
+  :: forall t f g
+   . (forall a . f a -> g a)
+  -> t f
+  -> t g
 
 
 buildTable

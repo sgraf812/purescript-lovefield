@@ -15,7 +15,7 @@ import Data.Maybe
 
 data ExprTree a
   = Lit a
-  | TableColumn Table (ColumnDescription a)
+  | TableColumn String (ColumnDescription a)
 
 -- TODO: Merge this with QueryExpr
 data QueryExprUniversal a b
@@ -31,6 +31,9 @@ data QueryExprUniversal a b
 
 newtype QueryExpr a
   = QueryExpr (Exists (QueryExprUniversal a))
+
+mkQueryExpr -> forall a b . QueryExprUniversal a b -> QueryExpr a
+mkQueryExpr quv = QueryExpr (mkExists quv)
 
 
 class HasLiterals a where
@@ -69,21 +72,47 @@ isNotNull expr =
     Object (Lit a) _ -> isJust (toMaybe a)
     Nullable (Lit a) _ -> isJust (toMaybe a)
 
+
 data Query a
   = Pure a
+
+
+columnDescriptionToQueryExpr :: forall a . String -> ColumnDescription a -> QueryExpr a
+columnDescriptionToQueryExpr tableName cd =
+  let
+    exprTree = TableColumn tableName cd
+  in
+    mkQueryExpr $
+      case cd of
+        CD.Int _ proof -> Int exprTree proof
+        CD.Number _ proof -> Number exprTree proof
+        CD.String _ proof -> String exprTree proof
+        CD.Boolean _ proof -> Boolean exprTree proof
+        CD.DateTime _ proof -> DateTime exprTree proof
+        CD.ArrayBuffer _ proof -> ArrayBuffer exprTree proof
+        CD.Object _ proof -> Object exprTree proof
+        CD.Nullable cd' proof -> Nullable (TableColumn tableName cd') proof
+        -- In this last case, we want to query just as if the column wasn't
+        -- nullable. The information will be carried in the type system though
+        -- and is relevant to e.g. `isNull`.
 
 
 queryTable
   :: forall t
    . Table t
   -> Query (t QueryExpr)
-queryTable table =
-  Pure 
+queryTable (Table tableName constraints recordCD) = Pure recordQE
+  where
+    recordQE :: t QueryExpr
+    recordQE =
+      mapColumnFunctor (columnDescriptionToQueryExpr tableName) recordCD
+
 
 
 runQuery
-  :: forall t
+  :: forall t eff
    . Connection
   -> Schema
   -> Query (t QueryExpr)
-  -> t Identity
+  -> Aff (db :: DB | eff) (Array (t Identity))
+runQuery db (Schema schemaName _ _) (Pure queryExpr) =

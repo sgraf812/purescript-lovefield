@@ -2,6 +2,12 @@
 
 // module Lovefield
 
+exports.foldOverFieldsNative = function (f, acc, record) {
+  Object.keys(record).forEach(function(key) {
+    
+  });
+};
+
 exports.mkExistentialTable = function (value) {
   return value;
 };
@@ -88,5 +94,17 @@ exports.insertOrReplaceNative = function (db, tableName, values, error, success)
     return db.insertOrReplace().into(table).values(rows).exec()
       .then(function () { success(PS["Prelude"].unit)(); })
       .catch(function (e) { error(e)(); });
+  }
+}
+
+exports.mapColumnFunctor = function (f) {
+  return function (record) {
+    var newRecord = {};
+
+    for (var field in record) {
+      newRecord[field] = f(record[field]);
+    }
+
+    return newRecord;
   }
 }
