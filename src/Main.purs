@@ -11,12 +11,13 @@ import Control.Monad.Eff.Console
 import Control.Monad.Eff.Class
 import Control.Monad.Aff
 import qualified Lovefield as LF
-import qualified Lovefield.ColumnDescription (ColumnDescription(), column, nullable) as LF
-import qualified Lovefield.QueryExpr as LF
+import qualified Lovefield.Schema as LF
+import qualified Lovefield.ColumnDescription (column, nullable) as LF
+import qualified Lovefield.Query as LF
 import Lovefield.Internal.Exists
+import Lovefield.CanSwitchContext
+import Lovefield.App
 
--- TODO: Type alias instead? would that work?
-newtype App a f = App (f a)
 
 newtype Names ctx =
   Names
@@ -49,28 +50,15 @@ value =
     }
 
 
--- ctx :: Type -> Type
--- mapping the value level type to a contextual database type
+mkNames id name age bag =
+  Names { id : id, name : name, age : age, bag : bag }
 
-mkNames id name age bag = Names { id = id, name = name, age = age, bag = bag }
-
-
-class CanSwitchContext t :: (* -> *) -> * where
-  switchContext
-    :: forall f g
-    -> (forall a . App a f -> App a g)
-    -> t f
-    -> t g
 
 
 instance namesCanSwitchContext :: CanSwitchContext Names where
-  switchContext :: forall f g . (forall a . App a f -> App a g) -> Names f -> Names g
-  switchContext f tf =
-    mkNames (f tf.hi) (f tf.name) (f tf.age) (f tf.bag)
-
-
-instance appCanSwitchContext :: CanSwitchContext (App a) where
-  switchContext f = f
+  --switchContext :: forall f g . (forall a . App a f -> App a g) -> Names f -> Names g
+  switchContext f (Names tf) =
+    mkNames (f tf.id) (f tf.name) (f tf.age) (f tf.bag)
 
 
 schema :: LF.Schema
@@ -82,19 +70,18 @@ schema =
     ]
 
 name :: Names Identity -> String
-name (Names names) = runIdentity names.name
+name (Names names) = runIdentity (runApp names.name)
 
 
 
-query1 :: Query (Names QueryExpr)
-query1 = LF.queryTable names
+query1 :: LF.Query (Names LF.Expr)
+query1 = LF.from names
 
-type App a f = f a
 
-query2 :: Query (QueryExpr String)
+{-query2 :: Query (QueryExpr String)
 query2 = do
   Names n <- LF.queryTable names
-  pure n.name
+  pure n.name-}
 
 
 main = launchAff do
@@ -102,7 +89,7 @@ main = launchAff do
   liftEff $ print "connected"
   LF.insertOrReplace db schema names [ value ]
   liftEff $ print "inserted"
-  result <- LF.runQuery db schema query1
+  result <- LF.runQuery db query1
   liftEff $ print (map name result)
-  result <- LF.runQuery db schema query2
-  liftEff $ print result
+  --result <- LF.runQuery db schema query2
+  --liftEff $ print result

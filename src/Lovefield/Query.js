@@ -1,6 +1,6 @@
 "use strict"
 
-// module Lovefield.QueryExpr
+// module Lovefield.Query
 
 exports.selectAll = function (db) { return db.select(); };
 

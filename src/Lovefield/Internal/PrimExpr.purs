@@ -2,22 +2,30 @@ module Lovefield.Internal.PrimExpr where
 
 import Prelude
 import Lovefield.Internal.Exists
+import Lovefield.Schema
+import Data.Tuple
+import Data.List
+import Data.Maybe
 
 -- Taken (mostly) straight from HaskellDB
 
 type Attribute = String
-type Assoc = List (Attribute, PrimExpr)
+type Assoc = List (Tuple Attribute PrimExpr)
+type Alias = Int
+type Name = String
 
 
 data PrimQuery -- TODO: Maybe add Leibniz for encoding of types?
-  = BaseTable TableName (List Attribute) -- From
+  = BaseTable Alias (Exists2 Table) -- From
   | Project Assoc PrimQuery -- Select
   | Restrict PrimExpr PrimQuery -- Where
+  | Times PrimQuery PrimQuery -- From
   | Group Assoc PrimQuery
+  | EmptyQuery
 
 
 data SpecialOp
-  = Order [OrderExpr]
+  = Order (Array OrderExpr)
 	| Top Int
 	| Offset Int
 
@@ -32,7 +40,7 @@ data OrderOp
 
 
 data PrimExpr
-  = AttrExpr  Attribute
+  = AttrExpr  Alias Attribute
   | TernExpr  TernOp PrimExpr PrimExpr PrimExpr
   | BinExpr   BinOp PrimExpr PrimExpr
   | UnExpr    UnOp PrimExpr

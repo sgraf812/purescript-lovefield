@@ -1,9 +1,7 @@
-module Lovefield.QueryExpr
-  ( ExprTree(..)
-  , ExprTreeUniversal(..)
-  , QueryExpr(..)
-  , QueryExprUniversal(..)
-  , Query(), queryTable, runQuery
+module Lovefield.Query
+  ( Query(), from
+  , runQuery
+  , Expr()
   ) where
 
 
@@ -12,28 +10,31 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Exception
 import Control.Monad.Aff
 import Control.Monad.State
-import Control.Monad.State.Class
-import Data.Nullable
-import Data.ArrayBuffer.Types
-import Data.Leibniz
-import Data.Date
-import Data.Foreign
 import Data.Function
 import Data.Identity
 import Lovefield.Internal.Exists
 import Lovefield.Internal.PrimExpr
+import Lovefield.CanSwitchContext
 import Lovefield
+import Lovefield.App
+import Lovefield.ColumnDescription
+import Lovefield.Schema
 
 newtype Expr a
   = Expr PrimExpr
 
 
+type QueryState =
+  { alias :: Alias
+  , query :: PrimQuery
+  }
 
-newtype QueryState =
-  QueryState
-    { alias :: Int
-    , expr :: PrimExpr
-    }
+
+initialState :: QueryState
+initialState =
+  { alias : 0
+  , query : EmptyQuery
+  }
 
 
 newtype Query a
@@ -49,61 +50,46 @@ newAlias = do
 
 (>>-)
   :: forall record1 record2
-   . Query (record1 QueryExpr)
-  -> (record1 QueryExpr -> Query (record2 QueryExpr))
-  -> Query (record2 QueryExpr)
+   . (CanSwitchContext record1, CanSwitchContext record2) -- Don't know if we need these
+  => Query (record1 Expr)
+  -> (record1 Expr -> Query (record2 Expr))
+  -> Query (record2 Expr)
+(>>-) (Query state) continuation = Query $ do
+  r1 <- state
+  case continuation r1 of
+    Query state' -> state'
 
 
 from
   :: forall t
-   . Table t
-  -> Query (t QueryExpr)
-from = Query \
+   . (CanSwitchContext t)
+  => Table t
+  -> Query (t Expr)
+from tbl@(Table name _ cd) = Query $ do
+  alias <- newAlias
+  modify \qs ->
+    qs { query = Times qs.query (BaseTable alias (mkExists2 tbl)) }
+  pure (switchContext (columnDescriptionToExpr alias) cd)
+
+
+columnDescriptionToExpr
+  :: forall a . Alias -> App a ColumnDescription -> App a Expr
+columnDescriptionToExpr alias (App cd) =
+  App (Expr (AttrExpr alias (columnName cd)))
 
 
 select
   :: forall t
-   . t QueryExpr
-  -> Query (t QueryExpr)
+   . t Expr
+  -> Query (t Expr)
+select expr = Query (pure expr)
 
 
-where_
-  :: forall t
-   . QueryExpr Bool
-  -> Query Unit
-
-
-
-data PrimExpr
-  = AttrExpr Attribute
-  | BinExpr BinOp PrimExpr PrimExpr
-
-
-data ExprTreeUniversal a t
-  = From (Table t) (Leibniz a (t QueryExpr))
-
-newtype ExprTree a
-  = ExprTree (Exists2 (ExprTreeUniversal a))
-
-fromExpr :: forall t . Table t -> ExprTree (t QueryExpr)
-fromExpr table =
-  ExprTree (mkExists2 (From table id))
-
-
--- TODO: Merge this with QueryExpr
-data QueryExprUniversal a b
-  = Int (ExprTree a) (Leibniz a Int)
-  | Number (ExprTree a) (Leibniz a Number)
-  | String (ExprTree a) (Leibniz a String)
-  | Boolean (ExprTree a) (Leibniz a Boolean)
-  | DateTime (ExprTree a) (Leibniz a Date)
-  | ArrayBuffer (ExprTree a) (Leibniz a (Nullable ArrayBuffer))
-  | Object (ExprTree a) (Leibniz a (Nullable Foreign))
-  | Nullable (QueryExpr b) (Leibniz a (Nullable b))
-
-
-newtype QueryExpr a
-  = QueryExpr (Exists0 (QueryExprUniversal a))
+{-where_ :: Expr Boolean -> Query Unit
+where_ (Expr predicate) = Query $ do
+  modify \qs ->
+    qs { query = Restrict predicate qs.query }
+  pure unit-}
 
 
 {-class HasLiterals a where
@@ -142,17 +128,6 @@ isNotNull expr =
     Object (Lit a) _ -> isJust (toMaybe a)
     Nullable (Lit a) _ -> isJust (toMaybe a)
 -}
-data Query a
-  = Pure (ExprTree a)
-
-
-queryTable
-  :: forall t
-   . Table t
-  -> Query (t QueryExpr)
-queryTable table =
-  Pure (fromExpr table)
-
 
 foreign import data Selection :: *
 foreign import data QueryBuilder :: *
@@ -170,18 +145,21 @@ foreign import execNative
 exec :: forall a eff . QueryBuilder -> Aff (db :: DB | eff) (Array a)
 exec qb = makeAff (runFn3 execNative qb)
 
-from :: Connection -> String -> Selection -> QueryBuilder
-from = runFn3 fromNative
 
 runQuery
   :: forall t eff
-   . Connection
-  -> Schema
-  -> Query (t QueryExpr)
+   . (CanSwitchContext t)
+  => Connection
+  -> Query (t Expr)
   -> Aff (db :: DB | eff) (Array (t Identity))
-runQuery db schema (Pure (ExprTree et)) = runExists2 impl et
+runQuery db (Query state) = execute qs.query
   where
-    impl etu =
-      case etu of
-        From (Table name _ _) _ ->
-          exec (from db name (selectAll db))
+    qs =
+      execState state initialState
+
+    execute query =
+      case query of
+        Times _ query' ->
+          execute query'
+        BaseTable alias tbl ->
+          runExists2 (\(Table name _ _) -> exec (runFn3 fromNative db name (selectAll db))) tbl

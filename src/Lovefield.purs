@@ -17,16 +17,9 @@ import Control.Monad.Eff.Exception
 import Control.Monad.Aff
 import Lovefield.ColumnDescription
 import Lovefield.Internal.Exists
+import Lovefield.Schema
 
 foreign import data DB :: !
-
-
-data Table columns
-  = Table String (Array Constraint) (columns ColumnDescription)
-
-
-data Schema
-  = Schema String Int (Array (Exists2 Table))
 
 
 data LFType
@@ -37,16 +30,6 @@ data LFType
   | LFDateTime
   | LFArrayBuffer
   | LFObject
-
-
-data PrimaryKey
-  = PrimaryKeys (Array String)
-  | AutoIncrement String
-
-data Constraint
-  = PrimaryKey PrimaryKey
-  | Unique String (Array String)
-  | ForeignKey String
 
 
 foreign import data Connection :: *
@@ -129,21 +112,6 @@ foreign import insertOrReplaceNative
       (Unit -> Eff (db :: DB | eff) Unit)
       (Eff (db :: DB | eff) Unit)
 
-
-columnName :: forall a . ColumnDescription a -> String
-columnName (ColumnDescription cd) = runExists0 impl cd
-  where
-    impl :: forall b . ColumnDescriptionUniversal a b -> String
-    impl cdu =
-      case cdu of
-        Int name _ -> name
-        Number name _ -> name
-        String name _ -> name
-        Boolean name _ -> name
-        DateTime name _ -> name
-        ArrayBuffer name _ -> name
-        Object name _ -> name
-        Nullable cd' _ -> columnName cd'
 
 addColumn
   :: forall a eff
