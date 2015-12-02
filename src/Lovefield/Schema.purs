@@ -18,6 +18,7 @@ data PrimaryKey
   = PrimaryKeys (Array String)
   | AutoIncrement String
 
+
 data Constraint
   = PrimaryKey PrimaryKey
   | Unique String (Array String)

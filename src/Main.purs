@@ -10,10 +10,8 @@ import Control.Monad.Eff
 import Control.Monad.Eff.Console
 import Control.Monad.Eff.Class
 import Control.Monad.Aff
+import Lovefield ((>>-), (.==.))
 import qualified Lovefield as LF
-import qualified Lovefield.Schema as LF
-import qualified Lovefield.ColumnDescription (column, nullable) as LF
-import qualified Lovefield.Query as LF
 import Lovefield.Internal.Exists
 import Lovefield.CanSwitchContext
 import Lovefield.App
@@ -21,10 +19,10 @@ import Lovefield.App
 
 newtype Names ctx =
   Names
-    { id :: App Int ctx
-    , name :: App String ctx
-    , age :: App (Nullable Int) ctx
-    , bag :: App (Nullable Foreign) ctx
+    { id :: ctx Int
+    , name :: ctx String
+    , age :: ctx (Nullable Int)
+    , bag :: ctx (Nullable Foreign)
     }
 
 names :: LF.Table Names
@@ -40,13 +38,13 @@ names = LF.Table "Names" constraints columnDescription
         , bag : LF.column "bag"
         }
 
-value :: Names Identity
-value =
+bert :: Names Identity
+bert =
   Names
-    { id : App (Identity 1)
-    , name : App (Identity "Bert")
-    , age : App (Identity (toNullable Nothing))
-    , bag : App (Identity (toNullable (Just (toForeign "blah"))))
+    { id : Identity 1
+    , name : Identity "Bert"
+    , age : Identity (toNullable Nothing)
+    , bag : Identity (toNullable (Just (toForeign "blah")))
     }
 
 
@@ -56,7 +54,6 @@ mkNames id name age bag =
 
 
 instance namesCanSwitchContext :: CanSwitchContext Names where
-  --switchContext :: forall f g . (forall a . App a f -> App a g) -> Names f -> Names g
   switchContext f (Names tf) =
     mkNames (f tf.id) (f tf.name) (f tf.age) (f tf.bag)
 
@@ -70,12 +67,15 @@ schema =
     ]
 
 name :: Names Identity -> String
-name (Names names) = runIdentity (runApp names.name)
-
+name (Names names) = runIdentity names.name
 
 
 query1 :: LF.Query (Names LF.Expr)
-query1 = LF.from names
+query1 =
+  LF.from names >>- \(Names n) ->
+  LF.where_ (n.name .==. n.name) >>- \_ ->
+  LF.select (Names n)
+
 
 
 {-query2 :: Query (QueryExpr String)
@@ -87,7 +87,7 @@ query2 = do
 main = launchAff do
   db <- LF.connect schema
   liftEff $ print "connected"
-  LF.insertOrReplace db schema names [ value ]
+  LF.insertOrReplace db schema names [ bert ]
   liftEff $ print "inserted"
   result <- LF.runQuery db query1
   liftEff $ print (map name result)

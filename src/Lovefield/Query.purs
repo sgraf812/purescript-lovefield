@@ -1,7 +1,8 @@
 module Lovefield.Query
-  ( Query(), from
+  ( Query(), from, (>>-), select, where_
   , runQuery
-  , Expr()
+  , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
+  , matches, in_
   ) where
 
 
@@ -15,10 +16,11 @@ import Data.Identity
 import Lovefield.Internal.Exists
 import Lovefield.Internal.PrimExpr
 import Lovefield.CanSwitchContext
-import Lovefield
 import Lovefield.App
 import Lovefield.ColumnDescription
 import Lovefield.Schema
+import Lovefield.Native
+
 
 newtype Expr a
   = Expr PrimExpr
@@ -49,11 +51,11 @@ newAlias = do
 
 
 (>>-)
-  :: forall record1 record2
-   . (CanSwitchContext record1, CanSwitchContext record2) -- Don't know if we need these
-  => Query (record1 Expr)
-  -> (record1 Expr -> Query (record2 Expr))
-  -> Query (record2 Expr)
+  :: forall a record
+   . (CanSwitchContext record) -- Don't know if we need these
+  => Query a
+  -> (a -> Query (record Expr))
+  -> Query (record Expr)
 (>>-) (Query state) continuation = Query $ do
   r1 <- state
   case continuation r1 of
@@ -73,9 +75,9 @@ from tbl@(Table name _ cd) = Query $ do
 
 
 columnDescriptionToExpr
-  :: forall a . Alias -> App a ColumnDescription -> App a Expr
-columnDescriptionToExpr alias (App cd) =
-  App (Expr (AttrExpr alias (columnName cd)))
+  :: forall a . Alias -> ColumnDescription a -> Expr a
+columnDescriptionToExpr alias cd =
+  Expr (AttrExpr alias (columnName cd))
 
 
 select
@@ -85,11 +87,11 @@ select
 select expr = Query (pure expr)
 
 
-{-where_ :: Expr Boolean -> Query Unit
+where_ :: Expr Boolean -> Query Unit
 where_ (Expr predicate) = Query $ do
   modify \qs ->
     qs { query = Restrict predicate qs.query }
-  pure unit-}
+  pure unit
 
 
 {-class HasLiterals a where
@@ -110,30 +112,60 @@ instance booleanHasLiterals :: HasLiterals Boolean where
 instance dateHasLiterals :: HasLiterals Date where
   val d = QueryExpr (mkExists (DateTime (Lit d) id))
 
--- TODO: Also write instances for the nullable cases
-
-isNull :: QueryExpr (Nullable a) -> QueryExpr Bool
-isNull expr =
-  case expr of
-    ArrayBuffer (Lit a) _ -> not (isJust (toMaybe a))
-    Object (Lit a) _ -> not (isJust (toMaybe a))
-    Nullable (Lit a) _ -> not (isJust (toMaybe a))
-    -- _ -> no need for that case. GADTs would cover this
-
-
-isNotNull :: QueryExpr (Nullable a) -> QueryExpr Bool
-isNotNull expr =
-  case expr of
-    ArrayBuffer (Lit a) _ -> isJust (toMaybe a)
-    Object (Lit a) _ -> isJust (toMaybe a)
-    Nullable (Lit a) _ -> isJust (toMaybe a)
 -}
 
+mkLiteral :: forall a . a -> Expr a
+mkLiteral a = Expr (ConstExpr (mkExists0 (Literal a)))
+
+
+binOp :: forall a b c. BinOp -> Expr a -> Expr b -> Expr c
+binOp op (Expr a) (Expr b) = Expr (BinExpr op a b)
+
+
+(.==.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(.==.) a b = binOp OpEq a b
+
+
+(./=.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(./=.) a b = binOp OpNotEq a b
+
+
+(.<=.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(.<=.) a b = binOp OpLtEq a b
+
+
+(.<.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(.<.) a b = binOp OpLt a b
+
+
+(.>=.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(.>=.) a b = binOp OpGtEq a b
+
+
+(.>.) :: forall a . Expr a -> Expr a -> Expr Boolean
+(.>.) a b = binOp OpGt a b
+
+
+matches :: String -> Expr String -> Expr Boolean
+matches regex s = binOp OpMatch (mkLiteral regex) s
+
+
+in_ :: forall a . Array a -> Expr a -> Expr Boolean
+in_ values a = binOp OpIn (mkLiteral values) a
+
+
 foreign import data Selection :: *
+
+
 foreign import data QueryBuilder :: *
 
+
 foreign import selectAll :: Connection -> Selection
+
+
 foreign import fromNative :: Fn3 Connection String Selection QueryBuilder
+
+
 foreign import execNative
   :: forall eff a
    . Fn3
@@ -142,8 +174,17 @@ foreign import execNative
       (Array a -> Eff (db :: DB | eff) Unit)
       (Eff (db :: DB | eff) Unit)
 
+
 exec :: forall a eff . QueryBuilder -> Aff (db :: DB | eff) (Array a)
 exec qb = makeAff (runFn3 execNative qb)
+
+
+foreign import data LFExpr :: *
+
+--primExprToLFExpr :: PrimExpr -> LFExpr
+--primExprToLFExpr expr = case expr of
+--  AttrExpr alias attribute ->
+
 
 
 runQuery
@@ -158,8 +199,64 @@ runQuery db (Query state) = execute qs.query
       execState state initialState
 
     execute query =
+      exec (build (normalize query))
+
+    build query =
       case query of
-        Times _ query' ->
-          execute query'
         BaseTable alias tbl ->
-          runExists2 (\(Table name _ _) -> exec (runFn3 fromNative db name (selectAll db))) tbl
+          runExists2 (\(Table name _ _) -> runFn3 fromNative db name (selectAll db)) tbl
+        Restrict pred query ->
+          build query -- TODO: Translate attribute access
+
+
+
+normalize :: PrimQuery -> PrimQuery
+normalize originalQuery =
+  case originalQuery of
+    -- Times reductions. Get them as far to the leafs
+    -- (BaseTable, EmptyQuery) as possible.
+    -- Cancel out EmptyQuery
+    Times EmptyQuery q ->
+      normalize q
+    Times q EmptyQuery ->
+      normalize q
+    Times bt@(BaseTable _ _) q ->
+      Times bt (normalize q)
+    Times q bt@(BaseTable _ _) -> -- Commutation here is probably safe
+      Times bt (normalize q)
+
+    -- Pull Projections and Restrictions to the root
+    Times (Project assoc q1) q2 ->
+      normalize (Project assoc (Times q1 q2))
+    Times q1 (Project assoc q2) ->
+      normalize (Project assoc (Times q1 q2))
+
+    Times (Restrict pred q1) q2 ->
+      normalize (Restrict pred (Times q1 q2))
+    Times q1 (Restrict pred q2) ->
+      normalize (Restrict pred (Times q1 q2))
+
+    -- Bring Products into a right associative normal form and normalize subqueries
+    Times (Times q1 q2) q3->
+      normalize (Times q1 (Times q2 q3))
+    Times q1 q2 ->
+      Times (normalize q1) (normalize q2)
+
+    -- Restrictions. Get them to leafs, but above their products.
+    Restrict pred (Project assoc q) ->
+      normalize (Project assoc (Restrict pred q))
+    Restrict pred q ->
+      Restrict pred (normalize q)
+
+    -- Projections. Merge consecutive ones.
+    Project assoc1 (Project assoc2 q) ->
+      normalize (Project (assoc1 ++ assoc2) q)
+    Project assoc q ->
+      Project assoc (normalize q)
+
+
+    EmptyQuery ->
+      EmptyQuery
+
+    _ ->
+      originalQuery
