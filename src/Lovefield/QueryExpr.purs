@@ -11,6 +11,8 @@ import Prelude
 import Control.Monad.Eff
 import Control.Monad.Eff.Exception
 import Control.Monad.Aff
+import Control.Monad.State
+import Control.Monad.State.Class
 import Data.Nullable
 import Data.ArrayBuffer.Types
 import Data.Leibniz
@@ -19,7 +21,63 @@ import Data.Foreign
 import Data.Function
 import Data.Identity
 import Lovefield.Internal.Exists
+import Lovefield.Internal.PrimExpr
 import Lovefield
+
+newtype Expr a
+  = Expr PrimExpr
+
+
+
+newtype QueryState =
+  QueryState
+    { alias :: Int
+    , expr :: PrimExpr
+    }
+
+
+newtype Query a
+  = Query (State QueryState a)
+
+
+newAlias :: State QueryState Int
+newAlias = do
+  state <- get
+  put (state { alias = state.alias + 1 })
+  pure state.alias
+
+
+(>>-)
+  :: forall record1 record2
+   . Query (record1 QueryExpr)
+  -> (record1 QueryExpr -> Query (record2 QueryExpr))
+  -> Query (record2 QueryExpr)
+
+
+from
+  :: forall t
+   . Table t
+  -> Query (t QueryExpr)
+from = Query \
+
+
+select
+  :: forall t
+   . t QueryExpr
+  -> Query (t QueryExpr)
+
+
+where_
+  :: forall t
+   . QueryExpr Bool
+  -> Query Unit
+
+
+
+data PrimExpr
+  = AttrExpr Attribute
+  | BinExpr BinOp PrimExpr PrimExpr
+
 
 data ExprTreeUniversal a t
   = From (Table t) (Leibniz a (t QueryExpr))
