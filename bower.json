@@ -19,6 +19,7 @@
     "purescript-foreign": "~0.7.2",
     "purescript-functions": "~0.1.0",
     "purescript-leibniz": "~0.1.0",
-    "purescript-free": "~0.9.1"
+    "purescript-free": "~0.9.1",
+    "purescript-debug": "~0.1.3"
   }
 }

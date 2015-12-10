@@ -13,6 +13,7 @@ import Control.Monad.Aff
 import Control.Monad.State
 import Data.Function
 import Data.Identity
+import Debug.Trace
 import Lovefield.Internal.Exists
 import Lovefield.Internal.PrimExpr
 import Lovefield.CanSwitchContext
@@ -154,36 +155,28 @@ in_ :: forall a . Array a -> Expr a -> Expr Boolean
 in_ values a = binOp OpIn (mkLiteral values) a
 
 
-foreign import data Selection :: *
-
-
-foreign import data QueryBuilder :: *
-
-
-foreign import selectAll :: Connection -> Selection
-
-
-foreign import fromNative :: Fn3 Connection String Selection QueryBuilder
-
-
-foreign import execNative
-  :: forall eff a
-   . Fn3
-      QueryBuilder
+foreign import runQueryNative
+  :: forall a eff
+   . Fn6
+      Connection
+      (Array From)
+      (Array Where)
+      (forall r . PrimExprMatcher r)
       (Error -> Eff (db :: DB | eff) Unit)
       (Array a -> Eff (db :: DB | eff) Unit)
       (Eff (db :: DB | eff) Unit)
 
 
-exec :: forall a eff . QueryBuilder -> Aff (db :: DB | eff) (Array a)
-exec qb = makeAff (runFn3 execNative qb)
+type From =
+  { alias :: Int
+  , name :: String
+  }
 
 
-foreign import data LFExpr :: *
+type Where =
+  { condition :: PrimExpr
+  }
 
---primExprToLFExpr :: PrimExpr -> LFExpr
---primExprToLFExpr expr = case expr of
---  AttrExpr alias attribute ->
 
 
 
@@ -199,14 +192,36 @@ runQuery db (Query state) = execute qs.query
       execState state initialState
 
     execute query =
-      exec (build (normalize query))
+      makeAff (runFn6 runQueryNative db (froms query) (wheres query) matchOnPrimExpr)
 
-    build query =
+    tableName =
+      runExists2 (\(Table name _ _) -> name)
+
+    froms query =
       case query of
+        EmptyQuery ->
+          []
         BaseTable alias tbl ->
-          runExists2 (\(Table name _ _) -> runFn3 fromNative db name (selectAll db)) tbl
-        Restrict pred query ->
-          build query -- TODO: Translate attribute access
+          [{ alias : alias, name : tableName tbl }]
+        Restrict _ q ->
+          froms q
+        Times q1 q2 ->
+          froms q1 ++ froms q2
+        Project _ q ->
+          froms q
+
+    wheres query =
+      case query of
+        EmptyQuery ->
+          []
+        BaseTable _ _ ->
+          []
+        Restrict expr q ->
+          [{ condition : expr }] ++ wheres q
+        Times q1 q2 ->
+          wheres q1 ++ wheres q2
+        Project _ q ->
+          wheres q
 
 
 

@@ -3,5 +3,6 @@
 /output/
 /.psci*
 /src/.webpack.js
+.pulp-cache/
 
 .browerify-cache.js

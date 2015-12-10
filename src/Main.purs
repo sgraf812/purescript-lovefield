@@ -78,10 +78,13 @@ query1 =
 
 
 
-{-query2 :: Query (QueryExpr String)
-query2 = do
-  Names n <- LF.queryTable names
-  pure n.name-}
+
+query2 :: LF.Query (Names LF.Expr)
+query2 =
+  LF.from names >>- \(Names n1) ->
+  LF.from names >>- \(Names n2) ->
+  LF.where_ (n1.name .==. n2.name) >>- \_ ->
+  LF.select (Names n1)
 
 
 main = launchAff do
@@ -89,7 +92,9 @@ main = launchAff do
   liftEff $ print "connected"
   LF.insertOrReplace db schema names [ bert ]
   liftEff $ print "inserted"
-  result <- LF.runQuery db query1
-  liftEff $ print (map name result)
+  result1 <- LF.runQuery db query1
+  liftEff $ print (map name result1)
+  result2 <- LF.runQuery db query2
+  liftEff $ print (map name result2)
   --result <- LF.runQuery db schema query2
   --liftEff $ print result
