@@ -10,8 +10,7 @@ function curry(fx) {
     var args = Array.prototype.slice.call(arguments, 0);
     if (args.length >= arity) {
       return fx.apply(null, args);
-    }
-    else {
+    } else {
       return function f2() {
         var args2 = Array.prototype.slice.call(arguments, 0);
         return f1.apply(null, args.concat(args2));
@@ -37,50 +36,62 @@ exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, su
         (function (_) { throw new Error("TernExpr is not AttrExpr") })
         (function (_) { throw new Error("BinExpr is not AttrExpr") })
         (function (_) { throw new Error("UnExpr is not AttrExpr") })
-        (function (_) { throw new Error("ConstExpr is not AttrExpr") })
+        (function (_) { throw new Error("ConstExpr is not AttrExpr") });
 
     var extractConst = matchOnPrimExpr
-        (function (_) { throw new Error("AttrExpr is not AttrExpr") })
-        (function (_) { throw new Error("TernExpr is not AttrExpr") })
-        (function (_) { throw new Error("BinExpr is not AttrExpr") })
-        (function (_) { throw new Error("UnExpr is not AttrExpr") })
-        (function (literal) { return lf.bind(literal); })
+        (function (_) { throw new Error("AttrExpr is not ConstExpr") })
+        (function (_) { throw new Error("TernExpr is not ConstExpr") })
+        (function (_) { throw new Error("BinExpr is not ConstExpr") })
+        (function (_) { throw new Error("UnExpr is not ConstExpr") })
+        (function (literal) { return lf.bind(literal); });
+
+    var extractConstAndExpr = matchOnPrimExpr
+        (curry(function (alias, name) { // AttrExpr, got it
+          return aliases[alias][name];
+        }))
+        (function (_) { throw new Error("TernExpr is not ConstExpr") })
+        (function (_) { throw new Error("BinExpr is not ConstExpr") })
+        (function (_) { throw new Error("UnExpr is not ConstExpr") })
+        (function (literal) { return lf.bind(literal); });
 
     function whereToLF(w) {
       return matchOnPrimExpr
         (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
         (curry(function (op, a, b, c) { // TernExpr, there's only between
-          if (op instanceof OpBetween) {
+          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+          if (op instanceof ps.OpBetween) {
             return extractAttr(a).between(extractConst(b), extractConst(c));
           } else {
             throw new Error("Unknown TernOp " + op);
           }
         }))
         (curry(function (op, a, b) { // BinExpr
-          if (op instanceof OpEq) {
-            return extractAttr(a).eq(extractConst(b));
-          } else if (op instanceof OpNotEq) {
-            return extractAttr(a).neq(extractConst(b));
-          } else if (op instanceof OpLt) {
-            return extractAttr(a).lt(extractConst(b));
-          } else if (op instanceof OpLtEq) {
-            return extractAttr(a).lte(extractConst(b));
-          } else if (op instanceof OpGt) {
-            return extractAttr(a).gt(extractConst(b));
-          } else if (op instanceof OpGtEq) {
-            return extractAttr(a).gte(extractConst(b));
-          } else if (op instanceof OpMatch) {
-            return extractAttr(a).match(extractConst(b));
-          } else if (op instanceof OpIn) {
-            return extractAttr(a).in(extractConst(b));
+          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+          if (op instanceof ps.OpEq) {
+            return extractAttr(a).eq(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpNotEq) {
+            return extractAttr(a).neq(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpLt) {
+            return extractAttr(a).lt(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpLtEq) {
+            return extractAttr(a).lte(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpGt) {
+            return extractAttr(a).gt(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpGtEq) {
+            return extractAttr(a).gte(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpMatch) {
+            return extractAttr(a).match(extractConstAndExpr(b));
+          } else if (op instanceof ps.OpIn) {
+            return extractAttr(a).in(extractConstAndExpr(b));
           } else {
             throw new Error("Unknown BinOp " + op);
           }
         }))
         (curry(function (op, a) { // UnExpr
-          if (op instanceof OpIsNull) {
+          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+          if (op instanceof ps.OpIsNull) {
             return extractAttr(a).isNull();
-          } else if (op instanceof OpIsNotNull) {
+          } else if (op instanceof ps.OpIsNotNull) {
             return extractAttr(a).isNotNull();
           } else {
             throw new Error("Unknown UnOp " + op);
@@ -90,25 +101,14 @@ exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, su
         (w.condition);
     };
 
-    var whereClause = lf.op.and(wheres.map(whereToLF));
 
-    var q = db.selectAll();
-    var q = q.from(q, aliases);
-    var q = q.where(whereClause);
-    return q.exec();
-  };
-};
-
-exports.fromNative = function (db, name, q) {
-  var tbl = db.getSchema().table(name);
-  return q.from(tbl)
-      .then(function (rows) { return success(rows)(); })
-      .catch(function (e) { return error(e)(); });
-};
-
-exports.execNative = function (q, error, success) {
-  return function () {
-    q.exec()
+    var q = db.select();
+    q = q.from.apply(q, aliases);
+    if (wheres.length > 0) {
+        var clauses = wheres.map(whereToLF);
+        q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
+    }
+    return q.exec()
       .then(function (rows) { return success(rows)(); })
       .catch(function (e) { return error(e)(); });
   };

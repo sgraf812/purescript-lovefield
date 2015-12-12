@@ -73,7 +73,6 @@ name (Names names) = runIdentity names.name
 query1 :: LF.Query (Names LF.Expr)
 query1 =
   LF.from names >>- \(Names n) ->
-  LF.where_ (n.name .==. n.name) >>- \_ ->
   LF.select (Names n)
 
 
