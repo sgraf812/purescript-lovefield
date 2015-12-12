@@ -13,6 +13,7 @@ import Control.Monad.Aff
 import Control.Monad.State
 import Data.Function
 import Data.Identity
+import Data.Tuple
 import Debug.Trace
 import Lovefield.Internal.Exists
 import Lovefield.Internal.PrimExpr
@@ -85,7 +86,8 @@ select
   :: forall t
    . t Expr
   -> Query (t Expr)
-select expr = Query (pure expr)
+select expr =
+  Query (pure expr)
 
 
 where_ :: Expr Boolean -> Query Unit
@@ -156,9 +158,10 @@ in_ values a = binOp OpIn (mkLiteral values) a
 
 
 foreign import runQueryNative
-  :: forall a eff
-   . Fn6
+  :: forall recordOfExpr a eff
+   . Fn7
       Connection
+      recordOfExpr
       (Array From)
       (Array Where)
       (forall r . PrimExprMatcher r)
@@ -189,10 +192,17 @@ runQuery
 runQuery db (Query state) = execute qs.query
   where
     qs =
-      execState state initialState
+      snd finalState
+
+    selected =
+      fst finalState
+
+    finalState =
+      runState state initialState
 
     execute query =
-      makeAff (runFn6 runQueryNative db (froms query) (wheres query) matchOnPrimExpr)
+      makeAff $ runFn7
+        runQueryNative db selected (froms query) (wheres query) matchOnPrimExpr
 
     tableName =
       runExists2 (\(Table name _ _) -> name)
@@ -222,56 +232,3 @@ runQuery db (Query state) = execute qs.query
           wheres q1 ++ wheres q2
         Project _ q ->
           wheres q
-
-
-
-normalize :: PrimQuery -> PrimQuery
-normalize originalQuery =
-  case originalQuery of
-    -- Times reductions. Get them as far to the leafs
-    -- (BaseTable, EmptyQuery) as possible.
-    -- Cancel out EmptyQuery
-    Times EmptyQuery q ->
-      normalize q
-    Times q EmptyQuery ->
-      normalize q
-    Times bt@(BaseTable _ _) q ->
-      Times bt (normalize q)
-    Times q bt@(BaseTable _ _) -> -- Commutation here is probably safe
-      Times bt (normalize q)
-
-    -- Pull Projections and Restrictions to the root
-    Times (Project assoc q1) q2 ->
-      normalize (Project assoc (Times q1 q2))
-    Times q1 (Project assoc q2) ->
-      normalize (Project assoc (Times q1 q2))
-
-    Times (Restrict pred q1) q2 ->
-      normalize (Restrict pred (Times q1 q2))
-    Times q1 (Restrict pred q2) ->
-      normalize (Restrict pred (Times q1 q2))
-
-    -- Bring Products into a right associative normal form and normalize subqueries
-    Times (Times q1 q2) q3->
-      normalize (Times q1 (Times q2 q3))
-    Times q1 q2 ->
-      Times (normalize q1) (normalize q2)
-
-    -- Restrictions. Get them to leafs, but above their products.
-    Restrict pred (Project assoc q) ->
-      normalize (Project assoc (Restrict pred q))
-    Restrict pred q ->
-      Restrict pred (normalize q)
-
-    -- Projections. Merge consecutive ones.
-    Project assoc1 (Project assoc2 q) ->
-      normalize (Project (assoc1 ++ assoc2) q)
-    Project assoc q ->
-      Project assoc (normalize q)
-
-
-    EmptyQuery ->
-      EmptyQuery
-
-    _ ->
-      originalQuery

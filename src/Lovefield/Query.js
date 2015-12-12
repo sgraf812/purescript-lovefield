@@ -19,8 +19,12 @@ function curry(fx) {
   };
 }
 
-exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, success) {
+exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr, error, success) {
   return function () {
+
+    // 1. Get the aliases for from() in place.
+    //    We also need them for attribute access.
+
     var schema = db.getSchema();
 
     var aliases = [];
@@ -28,6 +32,8 @@ exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, su
       var f = froms[i];
       aliases[f.alias] = schema.table(f.name).as('t' + f.alias);
     }
+
+    // Some auxiliary PrimExpr accessors
 
     var extractAttr = matchOnPrimExpr
         (curry(function (alias, name) { // AttrExpr, got it
@@ -53,6 +59,26 @@ exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, su
         (function (_) { throw new Error("BinExpr is not ConstExpr") })
         (function (_) { throw new Error("UnExpr is not ConstExpr") })
         (function (literal) { return lf.bind(literal); });
+
+    // 2. Prepare the filtering/selection of the resulting fields.
+    //    LF documents this as having overhead, but I don't see a way
+    //    without resorting to copying right now.
+    //    Although a lazy map over the result could work.
+
+    // selected is a record of PrimExprs (always). We can construct the mapping
+    // by iterating over the keys.
+
+    var selection = [];
+    for (var fieldName in selected) {
+      if (selected.hasOwnProperty(fieldName)) {
+        var expr = selected[fieldName];
+        selection.push(extractAttr(expr).as(fieldName));
+      }
+    }
+
+    // 3. Transform all where conditions into a single clause.
+    //    This also has to inspect PrimExprs, so it gets a little messy.
+    //    Would love to also do this in PS, but this is the most comfy way.
 
     function whereToLF(w) {
       return matchOnPrimExpr
@@ -102,7 +128,7 @@ exports.runQueryNative = function (db, froms, wheres, matchOnPrimExpr, error, su
     };
 
 
-    var q = db.select();
+    var q = db.select.apply(db, selection);
     q = q.from.apply(q, aliases);
     if (wheres.length > 0) {
         var clauses = wheres.map(whereToLF);
