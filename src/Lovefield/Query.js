@@ -49,7 +49,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
         (function (_) { throw new Error("TernExpr is not ConstExpr") })
         (function (_) { throw new Error("BinExpr is not ConstExpr") })
         (function (_) { throw new Error("UnExpr is not ConstExpr") })
-        (function (literal) { return lf.bind(literal); });
+        (function (literal) { return literal; });
 
     var extractConstAndExpr = matchOnPrimExpr
         (curry(function (alias, name) { // AttrExpr, got it
