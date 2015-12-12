@@ -2090,6 +2090,20 @@ var PS = { };
       OpEq.value = new OpEq();
       return OpEq;
   })();
+  var OpLt = (function () {
+      function OpLt() {
+
+      };
+      OpLt.value = new OpLt();
+      return OpLt;
+  })();
+  var OpGt = (function () {
+      function OpGt() {
+
+      };
+      OpGt.value = new OpGt();
+      return OpGt;
+  })();
   var AttrExpr = (function () {
       function AttrExpr(value0, value1) {
           this.value0 = value0;
@@ -2242,6 +2256,8 @@ var PS = { };
       };
   };
   exports["OpEq"] = OpEq;
+  exports["OpLt"] = OpLt;
+  exports["OpGt"] = OpGt;
   exports["AttrExpr"] = AttrExpr;
   exports["TernExpr"] = TernExpr;
   exports["BinExpr"] = BinExpr;
@@ -2316,7 +2332,7 @@ var PS = { };
           (function (_) { throw new Error("TernExpr is not ConstExpr") })
           (function (_) { throw new Error("BinExpr is not ConstExpr") })
           (function (_) { throw new Error("UnExpr is not ConstExpr") })
-          (function (literal) { return lf.bind(literal); });
+          (function (literal) { return literal; });
 
       // 2. Prepare the filtering/selection of the resulting fields.
       //    LF documents this as having overhead, but I don't see a way
@@ -2343,7 +2359,7 @@ var PS = { };
           (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
           (curry(function (op, a, b, c) { // TernExpr, there's only between
             var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-            if (op instanceof ps.OpBetween) {
+            if (ps.OpBetween && op instanceof ps.OpBetween) {
               return extractAttr(a).between(extractConst(b), extractConst(c));
             } else {
               throw new Error("Unknown TernOp " + op);
@@ -2351,21 +2367,21 @@ var PS = { };
           }))
           (curry(function (op, a, b) { // BinExpr
             var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-            if (op instanceof ps.OpEq) {
+            if (ps.OpEq && op instanceof ps.OpEq) {
               return extractAttr(a).eq(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpNotEq) {
+            } else if (ps.OpNotEq && op instanceof ps.OpNotEq) {
               return extractAttr(a).neq(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpLt) {
+            } else if (ps.OpLt && op instanceof ps.OpLt) {
               return extractAttr(a).lt(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpLtEq) {
+            } else if (ps.OpLtEq && op instanceof ps.OpLtEq) {
               return extractAttr(a).lte(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpGt) {
+            } else if (ps.OpGt && op instanceof ps.OpGt) {
               return extractAttr(a).gt(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpGtEq) {
+            } else if (ps.OpGtEq && op instanceof ps.OpGtEq) {
               return extractAttr(a).gte(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpMatch) {
+            } else if (ps.OpMatch && op instanceof ps.OpMatch) {
               return extractAttr(a).match(extractConstAndExpr(b));
-            } else if (op instanceof ps.OpIn) {
+            } else if (ps.OpIn && op instanceof ps.OpIn) {
               return extractAttr(a).in(extractConstAndExpr(b));
             } else {
               throw new Error("Unknown BinOp " + op);
@@ -2373,9 +2389,9 @@ var PS = { };
           }))
           (curry(function (op, a) { // UnExpr
             var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-            if (op instanceof ps.OpIsNull) {
+            if (ps.OpIsNull && op instanceof ps.OpIsNull) {
               return extractAttr(a).isNull();
-            } else if (op instanceof ps.OpIsNotNull) {
+            } else if (ps.OpIsNotNull && op instanceof ps.OpIsNotNull) {
               return extractAttr(a).isNotNull();
             } else {
               throw new Error("Unknown UnOp " + op);
@@ -2412,6 +2428,9 @@ var PS = { };
   var Data_Function = PS["Data.Function"];
   var Data_Identity = PS["Data.Identity"];
   var Data_Tuple = PS["Data.Tuple"];
+  var Data_Date = PS["Data.Date"];
+  var Data_Nullable = PS["Data.Nullable"];
+  var Data_Maybe = PS["Data.Maybe"];
   var Debug_Trace = PS["Debug.Trace"];
   var Lovefield_Internal_Exists = PS["Lovefield.Internal.Exists"];
   var Lovefield_Internal_PrimExpr = PS["Lovefield.Internal.PrimExpr"];
@@ -2424,54 +2443,70 @@ var PS = { };
   var Query = function (x) {
       return x;
   };
+  var HasLiterals = function (val, valNotNull) {
+      this.val = val;
+      this.valNotNull = valNotNull;
+  };
   var $greater$greater$minus = function (__dict_CanSwitchContext_0) {
-      return function (_7) {
+      return function (_8) {
           return function (continuation) {
-              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_7)(function (_1) {
-                  var _23 = continuation(_1);
-                  return _23;
+              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_8)(function (_1) {
+                  var _26 = continuation(_1);
+                  return _26;
               }));
           };
       };
   };
-  var where_ = function (_9) {
+  var where_ = function (_10) {
       return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (qs) {
-          var _25 = {};
-          for (var _26 in qs) {
-              if (qs.hasOwnProperty(_26)) {
-                  _25[_26] = qs[_26];
+          var _28 = {};
+          for (var _29 in qs) {
+              if (qs.hasOwnProperty(_29)) {
+                  _28[_29] = qs[_29];
               };
           };
-          _25.query = new Lovefield_Internal_PrimExpr.Restrict(_9, qs.query);
-          return _25;
+          _28.query = new Lovefield_Internal_PrimExpr.Restrict(_10, qs.query);
+          return _28;
       }))(function () {
           return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Prelude.unit);
       }));
+  };
+  var valNotNull = function (dict) {
+      return dict.valNotNull;
+  };
+  var val = function (dict) {
+      return dict.val;
   };
   var select = function (expr) {
       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(expr);
   };
   var newAlias = Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.get(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity)))(function (_0) {
       return Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.put(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))((function () {
-          var _28 = {};
-          for (var _29 in _0) {
-              if (_0.hasOwnProperty(_29)) {
-                  _28[_29] = _0[_29];
+          var _31 = {};
+          for (var _32 in _0) {
+              if (_0.hasOwnProperty(_32)) {
+                  _31[_32] = _0[_32];
               };
           };
-          _28.alias = _0.alias + 1 | 0;
-          return _28;
+          _31.alias = _0.alias + 1 | 0;
+          return _31;
       })()))(function () {
           return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(_0.alias);
       });
+  });
+  var mkLiteral = function (a) {
+      return new Lovefield_Internal_PrimExpr.ConstExpr(Lovefield_Internal_Exists.mkExists0(a));
+  };
+  var intHasLiterals = new HasLiterals(mkLiteral, function (_70) {
+      return mkLiteral(Data_Nullable.toNullable(Data_Maybe.Just.create(_70)));
   });
   var initialState = {
       alias: 0, 
       query: Lovefield_Internal_PrimExpr.EmptyQuery.value
   };
-  var runQuery = function (__dict_CanSwitchContext_1) {
+  var runQuery = function (__dict_CanSwitchContext_2) {
       return function (db) {
-          return function (_12) {
+          return function (_13) {
               var wheres = function (query) {
                   if (query instanceof Lovefield_Internal_PrimExpr.EmptyQuery) {
                       return [  ];
@@ -2490,10 +2525,10 @@ var PS = { };
                   if (query instanceof Lovefield_Internal_PrimExpr.Project) {
                       return wheres(query.value1);
                   };
-                  throw new Error("Failed pattern match at Lovefield.Query line 186, column 1 - line 192, column 1: " + [ query.constructor.name ]);
+                  throw new Error("Failed pattern match at Lovefield.Query line 220, column 1 - line 226, column 1: " + [ query.constructor.name ]);
               };
-              var tableName = Lovefield_Internal_Exists.runExists2(function (_6) {
-                  return _6.value0;
+              var tableName = Lovefield_Internal_Exists.runExists2(function (_7) {
+                  return _7.value0;
               });
               var froms = function (query) {
                   if (query instanceof Lovefield_Internal_PrimExpr.EmptyQuery) {
@@ -2514,9 +2549,9 @@ var PS = { };
                   if (query instanceof Lovefield_Internal_PrimExpr.Project) {
                       return froms(query.value1);
                   };
-                  throw new Error("Failed pattern match at Lovefield.Query line 186, column 1 - line 192, column 1: " + [ query.constructor.name ]);
+                  throw new Error("Failed pattern match at Lovefield.Query line 220, column 1 - line 226, column 1: " + [ query.constructor.name ]);
               };
-              var finalState = Control_Monad_State.runState(_12)(initialState);
+              var finalState = Control_Monad_State.runState(_13)(initialState);
               var qs = Data_Tuple.snd(finalState);
               var selected = Data_Tuple.fst(finalState);
               var execute = function (query) {
@@ -2525,35 +2560,40 @@ var PS = { };
               return execute(qs.query);
           };
       };
-  };
+  }; 
   var columnDescriptionToExpr = function (alias) {
       return function (cd) {
           return new Lovefield_Internal_PrimExpr.AttrExpr(alias, Lovefield_ColumnDescription.columnName(cd));
       };
   };
-  var from = function (__dict_CanSwitchContext_2) {
-      return function (_8) {
+  var from = function (__dict_CanSwitchContext_3) {
+      return function (_9) {
           return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(newAlias)(function (_2) {
               return Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (qs) {
-                  var _56 = {};
-                  for (var _57 in qs) {
-                      if (qs.hasOwnProperty(_57)) {
-                          _56[_57] = qs[_57];
+                  var _59 = {};
+                  for (var _60 in qs) {
+                      if (qs.hasOwnProperty(_60)) {
+                          _59[_60] = qs[_60];
                       };
                   };
-                  _56.query = new Lovefield_Internal_PrimExpr.Times(qs.query, new Lovefield_Internal_PrimExpr.BaseTable(_2, Lovefield_Internal_Exists.mkExists2(_8)));
-                  return _56;
+                  _59.query = new Lovefield_Internal_PrimExpr.Times(qs.query, new Lovefield_Internal_PrimExpr.BaseTable(_2, Lovefield_Internal_Exists.mkExists2(_9)));
+                  return _59;
               }))(function () {
-                  return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_2)(columnDescriptionToExpr(_2))(_8.value2));
+                  return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_3)(columnDescriptionToExpr(_2))(_9.value2));
               });
           }));
       };
-  };
+  }; 
   var binOp = function (op) {
-      return function (_10) {
-          return function (_11) {
-              return new Lovefield_Internal_PrimExpr.BinExpr(op, _10, _11);
+      return function (_11) {
+          return function (_12) {
+              return new Lovefield_Internal_PrimExpr.BinExpr(op, _11, _12);
           };
+      };
+  };
+  var $dot$less$dot = function (a) {
+      return function (b) {
+          return binOp(Lovefield_Internal_PrimExpr.OpLt.value)(a)(b);
       };
   };
   var $dot$eq$eq$dot = function (a) {
@@ -2561,12 +2601,23 @@ var PS = { };
           return binOp(Lovefield_Internal_PrimExpr.OpEq.value)(a)(b);
       };
   };
+  var $dot$greater$dot = function (a) {
+      return function (b) {
+          return binOp(Lovefield_Internal_PrimExpr.OpGt.value)(a)(b);
+      };
+  };
+  exports["HasLiterals"] = HasLiterals;
+  exports["valNotNull"] = valNotNull;
+  exports["val"] = val;
+  exports[".>."] = $dot$greater$dot;
+  exports[".<."] = $dot$less$dot;
   exports[".==."] = $dot$eq$eq$dot;
   exports["runQuery"] = runQuery;
   exports["where_"] = where_;
   exports["select"] = select;
   exports[">>-"] = $greater$greater$minus;
-  exports["from"] = from;;
+  exports["from"] = from;
+  exports["intHasLiterals"] = intHasLiterals;;
  
 })(PS["Lovefield.Query"] = PS["Lovefield.Query"] || {});
 (function(exports) {
@@ -2605,8 +2656,8 @@ var PS = { };
       return new Lovefield_Schema.Table("Names", constraints, columnDescription);
   })();
   var schema = new Lovefield_Schema.Schema("MyDB", 1, [ Lovefield_Internal_Exists.mkExists2(names) ]);
-  var name = function (_18) {
-      return Data_Identity.runIdentity(_18.name);
+  var name = function (_21) {
+      return Data_Identity.runIdentity(_21.name);
   };
   var mkNames = function (id) {
       return function (name_1) {
@@ -2623,36 +2674,50 @@ var PS = { };
       };
   };
   var namesCanSwitchContext = new Lovefield_CanSwitchContext.CanSwitchContext(function (f) {
-      return function (_19) {
-          return mkNames(f(_19.id))(f(_19.name))(f(_19.age))(f(_19.bag));
+      return function (_22) {
+          return mkNames(f(_22.id))(f(_22.name))(f(_22.age))(f(_22.bag));
       };
   });
-  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_14) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_14.name)(_14.name)))(function (_13) {
-          return Lovefield_Query.select(_14);
+  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_15) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_15.name)(_15.name)))(function (_14) {
+          return Lovefield_Query.select(_15);
       });
   });
-  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_17) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_16) {
-          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_17.name)(_16.name)))(function (_15) {
-              return Lovefield_Query.select(_17);
+  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_18) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_17) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".<."](_18.age)(_17.age)))(function (_16) {
+              return Lovefield_Query.select(_18);
           });
       });
   });
-  var bert = {
-      id: 1, 
-      name: "Bert", 
-      age: Data_Nullable.toNullable(Data_Maybe.Nothing.value), 
-      bag: Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign("blah")))
+  var query3 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_20) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_20.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_19) {
+          return Lovefield_Query.select(_20);
+      });
+  });
+  var idNames = function (id) {
+      return function (name_1) {
+          return function (age) {
+              return function (bag) {
+                  return mkNames(id)(name_1)(age)(bag);
+              };
+          };
+      };
   };
-  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_5) {
+  var bert = idNames(1)("Bert")(Data_Nullable.toNullable(new Data_Maybe.Just(42)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign("blah"))));
+  var alice = idNames(2)("Alice")(Data_Nullable.toNullable(new Data_Maybe.Just(26)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign(true))));
+  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_6) {
       return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("connected")))(function () {
-          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_5)(schema)(names)([ bert ]))(function () {
+          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_6)(schema)(names)([ alice, bert ]))(function () {
               return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("inserted")))(function () {
-                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(namesCanSwitchContext)(_5)(query1))(function (_4) {
-                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_4))))(function () {
-                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(namesCanSwitchContext)(_5)(query2))(function (_3) {
-                              return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_3)));
+                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(namesCanSwitchContext)(_6)(query1))(function (_5) {
+                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_5))))(function () {
+                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(namesCanSwitchContext)(_6)(query2))(function (_4) {
+                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_4))))(function () {
+                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(namesCanSwitchContext)(_6)(query3))(function (_3) {
+                                      return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_3)));
+                                  });
+                              });
                           });
                       });
                   });
@@ -2662,11 +2727,14 @@ var PS = { };
   }));
   exports["Names"] = Names;
   exports["main"] = main;
+  exports["query3"] = query3;
   exports["query2"] = query2;
   exports["query1"] = query1;
   exports["name"] = name;
   exports["schema"] = schema;
   exports["mkNames"] = mkNames;
+  exports["idNames"] = idNames;
+  exports["alice"] = alice;
   exports["bert"] = bert;
   exports["names"] = names;
   exports["namesCanSwitchContext"] = namesCanSwitchContext;;

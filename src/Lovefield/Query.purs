@@ -3,6 +3,7 @@ module Lovefield.Query
   , runQuery
   , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
   , matches, in_
+  , HasLiterals, val, valNotNull
   ) where
 
 
@@ -14,6 +15,9 @@ import Control.Monad.State
 import Data.Function
 import Data.Identity
 import Data.Tuple
+import Data.Date
+import Data.Nullable
+import Data.Maybe
 import Debug.Trace
 import Lovefield.Internal.Exists
 import Lovefield.Internal.PrimExpr
@@ -96,26 +100,58 @@ where_ (Expr predicate) = Query $ do
     qs { query = Restrict predicate qs.query }
   pure unit
 
+{-
 
-{-class HasLiterals a where
-  val :: a -> QueryExpr a
+newtype Aggregate a
+  = Aggregate (Expr a)
+
+
+unAggregate :: forall a . Aggregate a -> Expr a
+unAggregate (Aggregate expr) = expr
+
+
+aggregate
+  :: forall record1 record2
+   . (record1 Aggregate -> record2 Aggregate)
+  -> Query (record1 Expr)
+  -> Query (record2 Expr)
+aggregate aggregator (Query sourceQuery) = Query $ do
+  record1 <- sourceQuery
+  let record2 = (unAggregate <<< aggregator <<< Aggregate) record1
+  Query (pure record2)
+-}
+
+
+
+class HasLiterals a where
+  val :: a -> Expr a
+  valNotNull :: a -> Expr (Nullable a)
 
 instance intHasLiterals :: HasLiterals Int where
-  val n = QueryExpr (mkExists (Int (Lit n) id))
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
 
 instance numberHasLiterals :: HasLiterals Number where
-  val n = QueryExpr (mkExists (Number (Lit n) id))
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
 
 instance stringHasLiterals :: HasLiterals String where
-  val s = QueryExpr (mkExists (String (Lit s) id))
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
 
 instance booleanHasLiterals :: HasLiterals Boolean where
-  val b = QueryExpr (mkExists (Boolean (Lit b) id))
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
 
 instance dateHasLiterals :: HasLiterals Date where
-  val d = QueryExpr (mkExists (DateTime (Lit d) id))
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
 
--}
+instance listHasLiterals :: (HasLiterals a) => HasLiterals (Array a) where
+  val = mkLiteral
+  valNotNull = mkLiteral <<< toNullable <<< Just
+
+
 
 mkLiteral :: forall a . a -> Expr a
 mkLiteral a = Expr (ConstExpr (mkExists0 (Literal a)))
@@ -179,8 +215,6 @@ type From =
 type Where =
   { condition :: PrimExpr
   }
-
-
 
 
 runQuery

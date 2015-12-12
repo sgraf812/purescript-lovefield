@@ -58,7 +58,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
         (function (_) { throw new Error("TernExpr is not ConstExpr") })
         (function (_) { throw new Error("BinExpr is not ConstExpr") })
         (function (_) { throw new Error("UnExpr is not ConstExpr") })
-        (function (literal) { return lf.bind(literal); });
+        (function (literal) { return literal; });
 
     // 2. Prepare the filtering/selection of the resulting fields.
     //    LF documents this as having overhead, but I don't see a way
@@ -85,7 +85,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
         (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
         (curry(function (op, a, b, c) { // TernExpr, there's only between
           var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (op instanceof ps.OpBetween) {
+          if (ps.OpBetween && op instanceof ps.OpBetween) {
             return extractAttr(a).between(extractConst(b), extractConst(c));
           } else {
             throw new Error("Unknown TernOp " + op);
@@ -93,21 +93,21 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
         }))
         (curry(function (op, a, b) { // BinExpr
           var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (op instanceof ps.OpEq) {
+          if (ps.OpEq && op instanceof ps.OpEq) {
             return extractAttr(a).eq(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpNotEq) {
+          } else if (ps.OpNotEq && op instanceof ps.OpNotEq) {
             return extractAttr(a).neq(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpLt) {
+          } else if (ps.OpLt && op instanceof ps.OpLt) {
             return extractAttr(a).lt(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpLtEq) {
+          } else if (ps.OpLtEq && op instanceof ps.OpLtEq) {
             return extractAttr(a).lte(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpGt) {
+          } else if (ps.OpGt && op instanceof ps.OpGt) {
             return extractAttr(a).gt(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpGtEq) {
+          } else if (ps.OpGtEq && op instanceof ps.OpGtEq) {
             return extractAttr(a).gte(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpMatch) {
+          } else if (ps.OpMatch && op instanceof ps.OpMatch) {
             return extractAttr(a).match(extractConstAndExpr(b));
-          } else if (op instanceof ps.OpIn) {
+          } else if (ps.OpIn && op instanceof ps.OpIn) {
             return extractAttr(a).in(extractConstAndExpr(b));
           } else {
             throw new Error("Unknown BinOp " + op);
@@ -115,9 +115,9 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
         }))
         (curry(function (op, a) { // UnExpr
           var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (op instanceof ps.OpIsNull) {
+          if (ps.OpIsNull && op instanceof ps.OpIsNull) {
             return extractAttr(a).isNull();
-          } else if (op instanceof ps.OpIsNotNull) {
+          } else if (ps.OpIsNotNull && op instanceof ps.OpIsNotNull) {
             return extractAttr(a).isNotNull();
           } else {
             throw new Error("Unknown UnOp " + op);
