@@ -115,11 +115,11 @@ query3 =
   LF.where_ (n.age .>. valNotNull 30) >>- \_ ->
   LF.select (Names n)
 
-{-
-query4 :: LF.Query (Names LF.Expr)
+
+query4 :: LF.Query (T3 String Number Int LF.Expr)
 query4 = LF.aggregate aggregator query
   where
-    aggregator :: Names LF.Aggregate -> T3 LF.Expr
+    aggregator :: Names LF.Aggregate -> T3 String Number Int LF.Expr
     aggregator (Names n) =
       mkT3 (LF.groupBy n.name) (LF.avg n.age) (LF.count n.bag)
 
@@ -128,7 +128,6 @@ query4 = LF.aggregate aggregator query
       LF.from names >>- \(Names n) ->
       LF.where_ (n.age .>. LF.valNotNull 30) >>- \_ ->
       LF.select (Names n)
-      -}
 
 
 main = launchAff do
@@ -142,5 +141,5 @@ main = launchAff do
   liftEff $ print (map name result2)
   result3 <- LF.runQuery db query3
   liftEff $ print (map name result3)
---  result4 <- LF.runQuery db query4
---  liftEff $ print (map name result4)
+  result4 <- LF.runQuery db query4
+  liftEff $ print (map (\(T3 name avgAge bag) -> runIdentity name ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)

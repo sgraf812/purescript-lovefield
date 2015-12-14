@@ -1,8 +1,11 @@
 module Lovefield.Query
-  ( Query(), from, (>>-), select, where_
+  ( Query(), from, (>>-), select, where_, aggregate
   , runQuery
   , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
   , matches, in_
+  , Aggregate(), groupBy, count, sum, avg, geomMean
+  , min, max, stdDev, distinct
+  , EraseNullable
   , HasLiterals, val, valNotNull
   ) where
 
@@ -240,36 +243,52 @@ in_ :: forall a . Array a -> Expr a -> Expr Boolean
 in_ values = binOp OpIn (mkLiteral values)
 
 
-aggrExpr :: forall a . AggrOp -> Aggregate a -> Expr a
+aggrExpr :: forall a b . AggrOp -> Aggregate a -> Expr b
 aggrExpr op (Aggregate (Expr primExpr)) =
   Expr (AggrExpr op primExpr)
+
+
+class EraseNullable a b where
+
+
+instance intEraseNullable :: EraseNullable Int Int
+instance numberEraseNullable :: EraseNullable Number Number
+instance booleanEraseNullable :: EraseNullable Boolean Boolean
+instance stringEraseNullable :: EraseNullable String String
+instance dateEraseNullable :: EraseNullable Date Date
+
+instance nullableEraseNullable :: (EraseNullable a b) => EraseNullable (Nullable a) b
 
 
 groupBy :: forall a . Aggregate a -> Expr a
 groupBy = unAggregate -- groupings are handled in QueryState
 
 
-sum :: forall a . (Num a) => Aggregate a -> Expr a
+sum :: forall a b . (EraseNullable a b, Ring b) => Aggregate a -> Expr b
 sum = aggrExpr AggrSum
 
 
-avg :: forall a . (Num a) => Aggregate a -> Expr a
+avg :: forall a . Aggregate a -> Expr Number
 avg = aggrExpr AggrAvg
 
 
-min :: forall a . (Ord a) => Aggregate a -> Expr a
+geomMean :: forall a . Aggregate a -> Expr Number
+geomMean = aggrExpr AggrGeomMean
+
+
+min :: forall a b . (EraseNullable a b, Ord b) => Aggregate a -> Expr b
 min = aggrExpr AggrMin
 
 
-max :: forall a . (Ord a) => Aggregate a -> Expr a
+max :: forall a b . (EraseNullable a b, Ord b) => Aggregate a -> Expr b
 max = aggrExpr AggrMax
 
 
-stdDev :: forall a . (Num a) => Aggregate a -> Expr a
+stdDev :: forall a . Aggregate a -> Expr Number
 stdDev = aggrExpr AggrStdDev
 
 
-count :: forall a . (Aggregate a) -> Expr a
+count :: forall a . (Aggregate a) -> Expr Int
 count = aggrExpr AggrCount
 
 
@@ -293,8 +312,7 @@ foreign import runQueryNative
 
 runQuery
   :: forall t eff
-   . (CanSwitchContext t)
-  => Connection
+   . Connection
   -> Query (t Expr)
   -> Aff (db :: DB | eff) (Array (t Identity))
 runQuery db (Query state) = result

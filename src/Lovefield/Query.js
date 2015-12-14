@@ -42,6 +42,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
         (function (_) { throw new Error("TernExpr is not AttrExpr") })
         (function (_) { throw new Error("BinExpr is not AttrExpr") })
         (function (_) { throw new Error("UnExpr is not AttrExpr") })
+        (function (_) { throw new Error("AggrExpr is not AttrExpr") })
         (function (_) { throw new Error("ConstExpr is not AttrExpr") });
 
     var extractConst = matchOnPrimExpr
@@ -49,6 +50,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
         (function (_) { throw new Error("TernExpr is not ConstExpr") })
         (function (_) { throw new Error("BinExpr is not ConstExpr") })
         (function (_) { throw new Error("UnExpr is not ConstExpr") })
+        (function (_) { throw new Error("AggrExpr is not ConstExpr") })
         (function (literal) { return literal; });
 
     var extractConstAndExpr = matchOnPrimExpr
@@ -58,6 +60,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
         (function (_) { throw new Error("TernExpr is not ConstExpr") })
         (function (_) { throw new Error("BinExpr is not ConstExpr") })
         (function (_) { throw new Error("UnExpr is not ConstExpr") })
+        (function (_) { throw new Error("AggrExpr is not ConstExpr") })
         (function (literal) { return literal; });
 
     // 2. Prepare the filtering/selection of the resulting fields.
@@ -122,6 +125,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
           throw new Error("Unknown UnOp " + op);
         }
       }))
+      (function (_) { throw new Error("AggrExpr is not of type Expr Bool") })
       (function (_) { throw new Error("ConstExpr is not of type Expr Bool") });
 
 

@@ -15,15 +15,6 @@ type Alias = Int
 type Name = String
 
 
-data PrimQuery -- TODO: Maybe add Leibniz for encoding of types?
-  = BaseTable Alias (Exists2 Table) -- From
-  | Project Assoc PrimQuery -- Select
-  | Restrict PrimExpr PrimQuery -- Where
-  | Times PrimQuery PrimQuery -- From
-  | Group Assoc PrimQuery
-  | EmptyQuery
-
-
 data SpecialOp
   = Order (Array OrderExpr)
 	| Top Int
@@ -47,25 +38,26 @@ data PrimExpr
   | AggrExpr  AggrOp PrimExpr
   | ConstExpr (Exists0 Literal)
 
+
 type PrimExprMatcher r
   =  (Alias -> Attribute -> r)
   -> (TernOp -> PrimExpr -> PrimExpr -> PrimExpr -> r)
   -> (BinOp -> PrimExpr -> PrimExpr -> r)
   -> (UnOp -> PrimExpr -> r)
-  -- -> (AggrExpr -> PrimExpr -> r)
+  -> (AggrOp -> PrimExpr -> r)
   -> (forall a . a -> r)
-  -- -> (Maybe Name -> PrimExpr -> r)
   -> PrimExpr
   -> r
 
+
 matchOnPrimExpr :: forall r . PrimExprMatcher r
-matchOnPrimExpr attr tern bin un const expr =
+matchOnPrimExpr attr tern bin un aggr const expr =
   case expr of
     AttrExpr alias attribute -> attr alias attribute
     TernExpr op a b c -> tern op a b c
     BinExpr op a b -> bin op a b
     UnExpr op a -> un op a
-    --AggrExpr op expr -> aggr op expr
+    AggrExpr op expr -> aggr op expr
     ConstExpr ex -> runExists0 (\(Literal l) -> const l) ex
     --ListExpr exprs -> list exprs
     --ParamExpr par expr -> param par expr
@@ -98,4 +90,4 @@ data AggrOp
   | AggrMin | AggrMax
   | AggrStdDev
   | AggrDistinct
-  | AggrGroup  
+  | AggrGroup
