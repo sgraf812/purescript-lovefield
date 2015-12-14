@@ -71,11 +71,40 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
     // selected is a record of PrimExprs (always). We can construct the mapping
     // by iterating over the keys.
 
+    var extractAttrOrAggr = matchOnPrimExpr
+        (curry(function (alias, name) { // AttrExpr, got it
+          return aliases[alias][name];
+        }))
+        (function (_) { throw new Error("TernExpr is not AttrExpr") })
+        (function (_) { throw new Error("BinExpr is not AttrExpr") })
+        (function (_) { throw new Error("UnExpr is not AttrExpr") })
+        (curry(function (op, expr) {
+          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+          if (ps.AggrCount && op instanceof ps.AggrCount) {
+            return lf.fn.count(extractAttrOrAggr(expr));
+          } else if (ps.AggrSum && op instanceof ps.AggrSum) {
+            return lf.fn.sum(extractAttrOrAggr(expr));
+          } else if (ps.AggrAvg && op instanceof ps.AggrAvg) {
+            return lf.fn.avg(extractAttrOrAggr(expr));
+          } else if (ps.AggrGeomMean && op instanceof ps.AggrGeomMean) {
+            return lf.fn.geommean(extractAttrOrAggr(expr));
+          } else if (ps.AggrMin && op instanceof ps.AggrMin) {
+            return lf.fn.min(extractAttrOrAggr(expr));
+          } else if (ps.AggrMax && op instanceof ps.AggrMax) {
+            return lf.fn.max(extractAttrOrAggr(expr));
+          } else if (ps.AggrStdDev && op instanceof ps.AggrStdDev) {
+            return lf.fn.stddev(extractAttrOrAggr(expr));
+          } else if (ps.AggrDistinct && op instanceof ps.AggrDistinct) {
+            return lf.fn.distinct(extractAttrOrAggr(expr));
+          }
+        }))
+        (function (_) { throw new Error("ConstExpr is not AttrExpr") });
+
     var selection = [];
     for (var fieldName in selected) {
       if (selected.hasOwnProperty(fieldName)) {
         var expr = selected[fieldName];
-        selection.push(extractAttr(expr).as(fieldName));
+        selection.push(extractAttrOrAggr(expr).as(fieldName));
       }
     }
 
@@ -129,11 +158,21 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
       (function (_) { throw new Error("ConstExpr is not of type Expr Bool") });
 
 
+    // 4. Prepare grouping attributes. This is the easy part,
+    //    The hard part is handled in the selection section.
+    var groupBys = groupings.map(function (grouping) {
+      return aliases[grouping.alias][grouping.name];
+    });
+
+
     var q = db.select.apply(db, selection);
     q = q.from.apply(q, aliases);
     if (wheres.length > 0) {
-        var clauses = wheres.map(whereToLF);
-        q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
+      var clauses = wheres.map(whereToLF);
+      q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
+    }
+    if (groupBys.length > 0) {
+      q = q.groupBy.apply(q, groupBys);
     }
     return q.exec()
       .then(function (rows) { return success(rows)(); })

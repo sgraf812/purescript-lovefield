@@ -34,6 +34,11 @@ mkNames id name age bag =
   Names { id : id, name : name, age : age, bag : bag }
 
 
+instance namesCanSwitchContext :: CanSwitchContext Names where
+  switchContext f (Names tf) =
+    mkNames (f tf.id) (f tf.name) (f tf.age) (f tf.bag)
+
+
 data T3 a b c ctx =
   T3 (ctx a) (ctx b) (ctx c)
 
@@ -44,6 +49,10 @@ idT3 a b c =
 
 mkT3 = T3
 
+
+instance t3CanSwitchContext :: CanSwitchContext (T3 a b c) where
+  switchContext f (T3 a b c) =
+    mkT3 (f a) (f b) (f c)
 
 
 names :: LF.Table Names
@@ -73,13 +82,6 @@ alice =
 bert2 :: Names Identity
 bert2 =
   idNames 3 "Bert" (toNullable (Just 55)) (toNullable Nothing)
-
-
-
-
-instance namesCanSwitchContext :: CanSwitchContext Names where
-  switchContext f (Names tf) =
-    mkNames (f tf.id) (f tf.name) (f tf.age) (f tf.bag)
 
 
 schema :: LF.Schema
@@ -130,6 +132,24 @@ query4 = LF.aggregate aggregator query
       LF.select (Names n)
 
 
+query5 :: LF.Query (T3 Int Number Int LF.Expr)
+query5 = LF.aggregate aggregator2 (LF.aggregate aggregator1 query)
+  where
+    aggregator1 :: Names LF.Aggregate -> T3 String Number Int LF.Expr
+    aggregator1 (Names n) =
+      mkT3 (LF.groupBy n.name) (LF.avg n.age) (LF.count n.bag)
+
+    aggregator2 :: T3 String Number Int LF.Aggregate -> T3 Int Number Int LF.Expr
+    aggregator2 (T3 name age bag) =
+      mkT3 (LF.count name) (LF.avg age) (LF.sum bag)
+
+    query :: LF.Query (Names LF.Expr)
+    query =
+      LF.from names >>- \(Names n) ->
+      LF.where_ (n.age .>. LF.valNotNull 30) >>- \_ ->
+      LF.select (Names n)
+
+
 main = launchAff do
   db <- LF.connect schema
   liftEff $ print "connected"
@@ -143,3 +163,5 @@ main = launchAff do
   liftEff $ print (map name result3)
   result4 <- LF.runQuery db query4
   liftEff $ print (map (\(T3 name avgAge bag) -> runIdentity name ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)
+  result5 <- LF.runQuery db query5
+  liftEff $ print (map (\(T3 name avgAge bag) -> show (runIdentity name) ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)

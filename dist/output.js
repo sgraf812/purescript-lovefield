@@ -157,6 +157,31 @@ var PS = { };
     };
   };
 
+  //- Semiring -------------------------------------------------------------------
+
+  exports.intAdd = function (x) {
+    return function (y) {
+      /* jshint bitwise: false */
+      return x + y | 0;
+    };
+  };
+
+  exports.intMul = function (x) {
+    return function (y) {
+      /* jshint bitwise: false */
+      return x * y | 0;
+    };
+  };
+
+  //- Ring -----------------------------------------------------------------------
+
+  exports.intSub = function (x) {
+    return function (y) {
+      /* jshint bitwise: false */
+      return x - y | 0;
+    };
+  };
+
   //- Eq -------------------------------------------------------------------------
 
   exports.refEq = function (r1) {
@@ -221,13 +246,29 @@ var PS = { };
       this["__superclass_Prelude.Applicative_0"] = __superclass_Prelude$dotApplicative_0;
       this["__superclass_Prelude.Bind_1"] = __superclass_Prelude$dotBind_1;
   };
+  var Semiring = function (add, mul, one, zero) {
+      this.add = add;
+      this.mul = mul;
+      this.one = one;
+      this.zero = zero;
+  };
+  var Ring = function (__superclass_Prelude$dotSemiring_0, sub) {
+      this["__superclass_Prelude.Semiring_0"] = __superclass_Prelude$dotSemiring_0;
+      this.sub = sub;
+  };
   var Eq = function (eq) {
       this.eq = eq;
   };
   var Show = function (show) {
       this.show = show;
+  };
+  var zero = function (dict) {
+      return dict.zero;
   };                                                                           
   var unit = {};
+  var sub = function (dict) {
+      return dict.sub;
+  }; 
   var showString = new Show($foreign.showStringImpl);
   var showNumber = new Show($foreign.showNumberImpl);
   var showInt = new Show($foreign.showIntImpl);
@@ -236,7 +277,8 @@ var PS = { };
   };
   var showArray = function (__dict_Show_1) {
       return new Show($foreign.showArrayImpl(show(__dict_Show_1)));
-  };                                                                     
+  };                                                                            
+  var semiringInt = new Semiring($foreign.intAdd, $foreign.intMul, 1, 0);
   var semigroupoidFn = new Semigroupoid(function (f) {
       return function (g) {
           return function (x) {
@@ -244,11 +286,20 @@ var PS = { };
           };
       };
   });                 
+  var ringInt = new Ring(function () {
+      return semiringInt;
+  }, $foreign.intSub);
   var pure = function (dict) {
       return dict.pure;
   };
   var $$return = function (__dict_Applicative_2) {
       return pure(__dict_Applicative_2);
+  };                   
+  var one = function (dict) {
+      return dict.one;
+  };
+  var mul = function (dict) {
+      return dict.mul;
   };
   var map = function (dict) {
       return dict.map;
@@ -348,8 +399,13 @@ var PS = { };
   }, function (x) {
       return [ x ];
   });
+  var add = function (dict) {
+      return dict.add;
+  };
   exports["Show"] = Show;
   exports["Eq"] = Eq;
+  exports["Ring"] = Ring;
+  exports["Semiring"] = Semiring;
   exports["Monad"] = Monad;
   exports["Bind"] = Bind;
   exports["Applicative"] = Applicative;
@@ -360,6 +416,11 @@ var PS = { };
   exports["show"] = show;
   exports["=="] = $eq$eq;
   exports["eq"] = eq;
+  exports["sub"] = sub;
+  exports["one"] = one;
+  exports["mul"] = mul;
+  exports["zero"] = zero;
+  exports["add"] = add;
   exports["<>"] = $less$greater;
   exports["append"] = append;
   exports["ap"] = ap;
@@ -384,6 +445,8 @@ var PS = { };
   exports["applicativeArray"] = applicativeArray;
   exports["bindArray"] = bindArray;
   exports["monadArray"] = monadArray;
+  exports["semiringInt"] = semiringInt;
+  exports["ringInt"] = ringInt;
   exports["eqString"] = eqString;
   exports["showInt"] = showInt;
   exports["showNumber"] = showNumber;
@@ -2165,6 +2228,13 @@ var PS = { };
       AggrCount.value = new AggrCount();
       return AggrCount;
   })();
+  var AggrSum = (function () {
+      function AggrSum() {
+
+      };
+      AggrSum.value = new AggrSum();
+      return AggrSum;
+  })();
   var AggrAvg = (function () {
       function AggrAvg() {
 
@@ -2286,6 +2356,7 @@ var PS = { };
       };
   };
   exports["AggrCount"] = AggrCount;
+  exports["AggrSum"] = AggrSum;
   exports["AggrAvg"] = AggrAvg;
   exports["OpEq"] = OpEq;
   exports["OpLt"] = OpLt;
@@ -2373,11 +2444,40 @@ var PS = { };
       // selected is a record of PrimExprs (always). We can construct the mapping
       // by iterating over the keys.
 
+      var extractAttrOrAggr = matchOnPrimExpr
+          (curry(function (alias, name) { // AttrExpr, got it
+            return aliases[alias][name];
+          }))
+          (function (_) { throw new Error("TernExpr is not AttrExpr") })
+          (function (_) { throw new Error("BinExpr is not AttrExpr") })
+          (function (_) { throw new Error("UnExpr is not AttrExpr") })
+          (curry(function (op, expr) {
+            var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+            if (ps.AggrCount && op instanceof ps.AggrCount) {
+              return lf.fn.count(extractAttrOrAggr(expr));
+            } else if (ps.AggrSum && op instanceof ps.AggrSum) {
+              return lf.fn.sum(extractAttrOrAggr(expr));
+            } else if (ps.AggrAvg && op instanceof ps.AggrAvg) {
+              return lf.fn.avg(extractAttrOrAggr(expr));
+            } else if (ps.AggrGeomMean && op instanceof ps.AggrGeomMean) {
+              return lf.fn.geommean(extractAttrOrAggr(expr));
+            } else if (ps.AggrMin && op instanceof ps.AggrMin) {
+              return lf.fn.min(extractAttrOrAggr(expr));
+            } else if (ps.AggrMax && op instanceof ps.AggrMax) {
+              return lf.fn.max(extractAttrOrAggr(expr));
+            } else if (ps.AggrStdDev && op instanceof ps.AggrStdDev) {
+              return lf.fn.stddev(extractAttrOrAggr(expr));
+            } else if (ps.AggrDistinct && op instanceof ps.AggrDistinct) {
+              return lf.fn.distinct(extractAttrOrAggr(expr));
+            }
+          }))
+          (function (_) { throw new Error("ConstExpr is not AttrExpr") });
+
       var selection = [];
       for (var fieldName in selected) {
         if (selected.hasOwnProperty(fieldName)) {
           var expr = selected[fieldName];
-          selection.push(extractAttr(expr).as(fieldName));
+          selection.push(extractAttrOrAggr(expr).as(fieldName));
         }
       }
 
@@ -2431,11 +2531,21 @@ var PS = { };
         (function (_) { throw new Error("ConstExpr is not of type Expr Bool") });
 
 
+      // 4. Prepare grouping attributes. This is the easy part,
+      //    The hard part is handled in the selection section.
+      var groupBys = groupings.map(function (grouping) {
+        return aliases[grouping.alias][grouping.name];
+      });
+
+
       var q = db.select.apply(db, selection);
       q = q.from.apply(q, aliases);
       if (wheres.length > 0) {
-          var clauses = wheres.map(whereToLF);
-          q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
+        var clauses = wheres.map(whereToLF);
+        q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
+      }
+      if (groupBys.length > 0) {
+        q = q.groupBy.apply(q, groupBys);
       }
       return q.exec()
         .then(function (rows) { return success(rows)(); })
@@ -2484,13 +2594,14 @@ var PS = { };
   var HasLiterals = function (val, valNotNull) {
       this.val = val;
       this.valNotNull = valNotNull;
-  };                     
+  };
+  var EraseNullable = {};
   var $greater$greater$minus = function (__dict_CanSwitchContext_0) {
-      return function (_10) {
+      return function (_9) {
           return function (continuation) {
-              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_10)(function (_1) {
-                  var _50 = continuation(_1);
-                  return _50;
+              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_9)(function (_1) {
+                  var _33 = continuation(_1);
+                  return _33;
               }));
           };
       };
@@ -2501,8 +2612,8 @@ var PS = { };
   var val = function (dict) {
       return dict.val;
   };
-  var unAggregate = function (_12) {
-      return _12;
+  var unAggregate = function (_11) {
+      return _11;
   };                                      
   var select = function (expr) {
       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(expr);
@@ -2510,9 +2621,10 @@ var PS = { };
   var mkLiteral = function (a) {
       return new Lovefield_Internal_PrimExpr.ConstExpr(Lovefield_Internal_Exists.mkExists0(a));
   };
-  var intHasLiterals = new HasLiterals(mkLiteral, function (_81) {
-      return mkLiteral(Data_Nullable.toNullable(Data_Maybe.Just.create(_81)));
-  });                                  
+  var intHasLiterals = new HasLiterals(mkLiteral, function (_64) {
+      return mkLiteral(Data_Nullable.toNullable(Data_Maybe.Just.create(_64)));
+  });
+  var intEraseNullable = EraseNullable;
   var initialState = {
       nextAlias: 0, 
       references: [  ], 
@@ -2520,8 +2632,8 @@ var PS = { };
       groupings: [  ]
   };
   var runQuery = function (db) {
-      return function (_17) {
-          var finalState = Control_Monad_State.runState(_17)(initialState);
+      return function (_16) {
+          var finalState = Control_Monad_State.runState(_16)(initialState);
           var qs = Data_Tuple.snd(finalState);
           var selected = Data_Tuple.fst(finalState);
           var result = Control_Monad_Aff.makeAff(Data_Function.runFn8($foreign.runQueryNative)(db)(selected)(qs.references)(qs.restrictions)(qs.groupings)(Lovefield_Internal_PrimExpr.matchOnPrimExpr));
@@ -2535,9 +2647,9 @@ var PS = { };
       };
   };                                       
   var binOp = function (op) {
-      return function (_14) {
-          return function (_15) {
-              return new Lovefield_Internal_PrimExpr.BinExpr(op, _14, _15);
+      return function (_13) {
+          return function (_14) {
+              return new Lovefield_Internal_PrimExpr.BinExpr(op, _13, _14);
           };
       };
   };                                                                     
@@ -2546,31 +2658,31 @@ var PS = { };
   var $dot$greater$dot = binOp(Lovefield_Internal_PrimExpr.OpGt.value);     
   var aggregate = function (__dict_CanSwitchContext_3) {
       return function (aggregator) {
-          return function (_13) {
-              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_13)(function (_3) {
+          return function (_12) {
+              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_12)(function (_3) {
                   var record2 = aggregator(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_3)(Aggregate)(_3));
                   var groupings = Data_Array.mapMaybe(function (key) {
-                      var _60 = Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index.prop(key)(Data_Foreign.toForeign(record2))));
-                      if (_60 instanceof Lovefield_Internal_PrimExpr.AttrExpr) {
+                      var _43 = Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index.prop(key)(Data_Foreign.toForeign(record2))));
+                      if (_43 instanceof Lovefield_Internal_PrimExpr.AttrExpr) {
                           return new Data_Maybe.Just({
-                              alias: _60.value0, 
-                              name: _60.value1
+                              alias: _43.value0, 
+                              name: _43.value1
                           });
                       };
-                      if (_60 instanceof Lovefield_Internal_PrimExpr.AggrExpr) {
+                      if (_43 instanceof Lovefield_Internal_PrimExpr.AggrExpr) {
                           return Data_Maybe.Nothing.value;
                       };
                       return Data_Maybe.Nothing.value;
                   })(Data_Either.either(Prelude["const"]([  ]))(Prelude.id(Prelude.categoryFn))(Data_Foreign_Keys.keys(Data_Foreign.toForeign(record2))));
                   return Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_0) {
-                      var _65 = {};
-                      for (var _66 in _0) {
-                          if (_0.hasOwnProperty(_66)) {
-                              _65[_66] = _0[_66];
+                      var _48 = {};
+                      for (var _49 in _0) {
+                          if (_0.hasOwnProperty(_49)) {
+                              _48[_49] = _0[_49];
                           };
                       };
-                      _65.groupings = groupings;
-                      return _65;
+                      _48.groupings = groupings;
+                      return _48;
                   }))(function () {
                       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(record2);
                   });
@@ -2579,22 +2691,27 @@ var PS = { };
       };
   };
   var aggrExpr = function (op) {
-      return function (_16) {
-          return new Lovefield_Internal_PrimExpr.AggrExpr(op, _16);
+      return function (_15) {
+          return new Lovefield_Internal_PrimExpr.AggrExpr(op, _15);
       };
   };
   var avg = aggrExpr(Lovefield_Internal_PrimExpr.AggrAvg.value);
-  var count = aggrExpr(Lovefield_Internal_PrimExpr.AggrCount.value);
+  var count = aggrExpr(Lovefield_Internal_PrimExpr.AggrCount.value);  
+  var sum = function (__dict_EraseNullable_8) {
+      return function (__dict_Ring_9) {
+          return aggrExpr(Lovefield_Internal_PrimExpr.AggrSum.value);
+      };
+  };
   var addRestriction = function (expr) {
       var impl = function (state) {
-          var _69 = {};
-          for (var _70 in state) {
-              if (state.hasOwnProperty(_70)) {
-                  _69[_70] = state[_70];
+          var _52 = {};
+          for (var _53 in state) {
+              if (state.hasOwnProperty(_53)) {
+                  _52[_53] = state[_53];
               };
           };
-          _69.restrictions = Data_Array[":"](expr)(state.restrictions);
-          return _69;
+          _52.restrictions = Data_Array[":"](expr)(state.restrictions);
+          return _52;
       };
       return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(impl);
   };
@@ -2608,30 +2725,32 @@ var PS = { };
               name: tableName
           };
           return new Data_Tuple.Tuple(state.nextAlias, (function () {
-              var _71 = {};
-              for (var _72 in state) {
-                  if (state.hasOwnProperty(_72)) {
-                      _71[_72] = state[_72];
+              var _54 = {};
+              for (var _55 in state) {
+                  if (state.hasOwnProperty(_55)) {
+                      _54[_55] = state[_55];
                   };
               };
-              _71.nextAlias = state.nextAlias + 1 | 0;
-              _71.references = Data_Array[":"](ref)(state.references);
-              return _71;
+              _54.nextAlias = state.nextAlias + 1 | 0;
+              _54.references = Data_Array[":"](ref)(state.references);
+              return _54;
           })());
       };
       return Control_Monad_State_Class.state(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(impl);
   };
   var from = function (__dict_CanSwitchContext_10) {
-      return function (_11) {
-          return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(addReference(_11.value0))(function (_2) {
-              return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_10)(columnDescriptionToExpr(_2))(_11.value2));
+      return function (_10) {
+          return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(addReference(_10.value0))(function (_2) {
+              return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_10)(columnDescriptionToExpr(_2))(_10.value2));
           }));
       };
   };
   exports["HasLiterals"] = HasLiterals;
+  exports["EraseNullable"] = EraseNullable;
   exports["valNotNull"] = valNotNull;
   exports["val"] = val;
   exports["avg"] = avg;
+  exports["sum"] = sum;
   exports["count"] = count;
   exports["groupBy"] = groupBy;
   exports[".>."] = $dot$greater$dot;
@@ -2643,7 +2762,8 @@ var PS = { };
   exports["select"] = select;
   exports[">>-"] = $greater$greater$minus;
   exports["from"] = from;
-  exports["intHasLiterals"] = intHasLiterals;;
+  exports["intHasLiterals"] = intHasLiterals;
+  exports["intEraseNullable"] = intEraseNullable;;
  
 })(PS["Lovefield.Query"] = PS["Lovefield.Query"] || {});
 (function(exports) {
@@ -2697,10 +2817,15 @@ var PS = { };
       return new Lovefield_Schema.Table("Names", constraints, columnDescription);
   })();
   var schema = new Lovefield_Schema.Schema("MyDB", 1, [ Lovefield_Internal_Exists.mkExists2(names) ]);
-  var name = function (_28) {
-      return Data_Identity.runIdentity(_28.name);
+  var name = function (_19) {
+      return Data_Identity.runIdentity(_19.name);
   };
   var mkT3 = T3.create;
+  var t3CanSwitchContext = new Lovefield_CanSwitchContext.CanSwitchContext(function (f) {
+      return function (_21) {
+          return mkT3(f(_21.value0))(f(_21.value1))(f(_21.value2));
+      };
+  });
   var mkNames = function (id) {
       return function (name_1) {
           return function (age) {
@@ -2716,37 +2841,51 @@ var PS = { };
       };
   };
   var namesCanSwitchContext = new Lovefield_CanSwitchContext.CanSwitchContext(function (f) {
-      return function (_29) {
-          return mkNames(f(_29.id))(f(_29.name))(f(_29.age))(f(_29.bag));
+      return function (_20) {
+          return mkNames(f(_20.id))(f(_20.name))(f(_20.age))(f(_20.bag));
       };
   });
-  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_19) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_19.name)(_19.name)))(function (_18) {
-          return Lovefield_Query.select(_19);
+  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_7) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_7.name)(_7.name)))(function (_6) {
+          return Lovefield_Query.select(_7);
       });
   });
-  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_22) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_21) {
-          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".<."](_22.age)(_21.age)))(function (_20) {
-              return Lovefield_Query.select(_22);
+  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_10) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_9) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".<."](_10.age)(_9.age)))(function (_8) {
+              return Lovefield_Query.select(_10);
           });
       });
   });
-  var query3 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_24) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_24.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_23) {
-          return Lovefield_Query.select(_24);
+  var query3 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_12) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_12.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_11) {
+          return Lovefield_Query.select(_12);
       });
   });
   var query4 = (function () {
-      var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_26) {
-          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_26.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_25) {
-              return Lovefield_Query.select(_26);
+      var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_14) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_14.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_13) {
+              return Lovefield_Query.select(_14);
           });
       });
-      var aggregator = function (_30) {
-          return mkT3(Lovefield_Query.groupBy(_30.name))(Lovefield_Query.avg(_30.age))(Lovefield_Query.count(_30.bag));
+      var aggregator = function (_22) {
+          return mkT3(Lovefield_Query.groupBy(_22.name))(Lovefield_Query.avg(_22.age))(Lovefield_Query.count(_22.bag));
       };
       return Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator)(query);
+  })();
+  var query5 = (function () {
+      var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_16) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_16.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_15) {
+              return Lovefield_Query.select(_16);
+          });
+      });
+      var aggregator2 = function (_24) {
+          return mkT3(Lovefield_Query.count(_24.value0))(Lovefield_Query.avg(_24.value1))(Lovefield_Query.sum(Lovefield_Query.intEraseNullable)(Prelude.ringInt)(_24.value2));
+      };
+      var aggregator1 = function (_23) {
+          return mkT3(Lovefield_Query.groupBy(_23.name))(Lovefield_Query.avg(_23.age))(Lovefield_Query.count(_23.bag));
+      };
+      return Lovefield_Query.aggregate(t3CanSwitchContext)(aggregator2)(Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator1)(query));
   })();
   var idT3 = function (a) {
       return function (b) {
@@ -2767,20 +2906,26 @@ var PS = { };
   var bert2 = idNames(3)("Bert")(Data_Nullable.toNullable(new Data_Maybe.Just(55)))(Data_Nullable.toNullable(Data_Maybe.Nothing.value));
   var bert1 = idNames(1)("Bert")(Data_Nullable.toNullable(new Data_Maybe.Just(42)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign("blah"))));
   var alice = idNames(2)("Alice")(Data_Nullable.toNullable(new Data_Maybe.Just(26)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign(true))));
-  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_8) {
+  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_5) {
       return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("connected")))(function () {
-          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_8)(schema)(names)([ alice, bert1, bert2 ]))(function () {
+          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_5)(schema)(names)([ alice, bert1, bert2 ]))(function () {
               return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("inserted")))(function () {
-                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_8)(query1))(function (_7) {
-                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_7))))(function () {
-                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_8)(query2))(function (_6) {
-                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_6))))(function () {
-                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_8)(query3))(function (_5) {
-                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_5))))(function () {
-                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_8)(query4))(function (_4) {
-                                              return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(function (_27) {
-                                                  return Data_Identity.runIdentity(_27.value0) + (" " + (Prelude.show(Prelude.showNumber)(Data_Identity.runIdentity(_27.value1)) + (" " + Prelude.show(Prelude.showInt)(Data_Identity.runIdentity(_27.value2)))));
-                                              })(_4)));
+                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_5)(query1))(function (_4) {
+                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_4))))(function () {
+                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_5)(query2))(function (_3) {
+                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_3))))(function () {
+                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_5)(query3))(function (_2) {
+                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_2))))(function () {
+                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_5)(query4))(function (_1) {
+                                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(function (_17) {
+                                                  return Data_Identity.runIdentity(_17.value0) + (" " + (Prelude.show(Prelude.showNumber)(Data_Identity.runIdentity(_17.value1)) + (" " + Prelude.show(Prelude.showInt)(Data_Identity.runIdentity(_17.value2)))));
+                                              })(_1))))(function () {
+                                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_5)(query5))(function (_0) {
+                                                      return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(function (_18) {
+                                                          return Prelude.show(Prelude.showString)(Data_Identity.runIdentity(_18.value0)) + (" " + (Prelude.show(Prelude.showNumber)(Data_Identity.runIdentity(_18.value1)) + (" " + Prelude.show(Prelude.showInt)(Data_Identity.runIdentity(_18.value2)))));
+                                                      })(_1)));
+                                                  });
+                                              });
                                           });
                                       });
                                   });
@@ -2795,6 +2940,7 @@ var PS = { };
   exports["T3"] = T3;
   exports["Names"] = Names;
   exports["main"] = main;
+  exports["query5"] = query5;
   exports["query4"] = query4;
   exports["query3"] = query3;
   exports["query2"] = query2;
@@ -2809,7 +2955,8 @@ var PS = { };
   exports["idT3"] = idT3;
   exports["mkNames"] = mkNames;
   exports["idNames"] = idNames;
-  exports["namesCanSwitchContext"] = namesCanSwitchContext;;
+  exports["namesCanSwitchContext"] = namesCanSwitchContext;
+  exports["t3CanSwitchContext"] = t3CanSwitchContext;;
  
 })(PS["Main"] = PS["Main"] || {});
 
