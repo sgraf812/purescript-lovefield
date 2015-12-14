@@ -19,7 +19,7 @@ function curry(fx) {
   };
 }
 
-exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr, error, success) {
+exports.runQueryNative = function (db, selected, froms, wheres, groupings, matchOnPrimExpr, error, success) {
   return function () {
 
     // 1. Get the aliases for from() in place.
@@ -80,52 +80,49 @@ exports.runQueryNative = function (db, selected, froms, wheres, matchOnPrimExpr,
     //    This also has to inspect PrimExprs, so it gets a little messy.
     //    Would love to also do this in PS, but this is the most comfy way.
 
-    function whereToLF(w) {
-      return matchOnPrimExpr
-        (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
-        (curry(function (op, a, b, c) { // TernExpr, there's only between
-          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (ps.OpBetween && op instanceof ps.OpBetween) {
-            return extractAttr(a).between(extractConst(b), extractConst(c));
-          } else {
-            throw new Error("Unknown TernOp " + op);
-          }
-        }))
-        (curry(function (op, a, b) { // BinExpr
-          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (ps.OpEq && op instanceof ps.OpEq) {
-            return extractAttr(a).eq(extractConstAndExpr(b));
-          } else if (ps.OpNotEq && op instanceof ps.OpNotEq) {
-            return extractAttr(a).neq(extractConstAndExpr(b));
-          } else if (ps.OpLt && op instanceof ps.OpLt) {
-            return extractAttr(a).lt(extractConstAndExpr(b));
-          } else if (ps.OpLtEq && op instanceof ps.OpLtEq) {
-            return extractAttr(a).lte(extractConstAndExpr(b));
-          } else if (ps.OpGt && op instanceof ps.OpGt) {
-            return extractAttr(a).gt(extractConstAndExpr(b));
-          } else if (ps.OpGtEq && op instanceof ps.OpGtEq) {
-            return extractAttr(a).gte(extractConstAndExpr(b));
-          } else if (ps.OpMatch && op instanceof ps.OpMatch) {
-            return extractAttr(a).match(extractConstAndExpr(b));
-          } else if (ps.OpIn && op instanceof ps.OpIn) {
-            return extractAttr(a).in(extractConstAndExpr(b));
-          } else {
-            throw new Error("Unknown BinOp " + op);
-          }
-        }))
-        (curry(function (op, a) { // UnExpr
-          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (ps.OpIsNull && op instanceof ps.OpIsNull) {
-            return extractAttr(a).isNull();
-          } else if (ps.OpIsNotNull && op instanceof ps.OpIsNotNull) {
-            return extractAttr(a).isNotNull();
-          } else {
-            throw new Error("Unknown UnOp " + op);
-          }
-        }))
-        (function (_) { throw new Error("ConstExpr is not of type Expr Bool") })
-        (w.condition);
-    };
+    var whereToLF = matchOnPrimExpr
+      (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
+      (curry(function (op, a, b, c) { // TernExpr, there's only between
+        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+        if (ps.OpBetween && op instanceof ps.OpBetween) {
+          return extractAttr(a).between(extractConst(b), extractConst(c));
+        } else {
+          throw new Error("Unknown TernOp " + op);
+        }
+      }))
+      (curry(function (op, a, b) { // BinExpr
+        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+        if (ps.OpEq && op instanceof ps.OpEq) {
+          return extractAttr(a).eq(extractConstAndExpr(b));
+        } else if (ps.OpNotEq && op instanceof ps.OpNotEq) {
+          return extractAttr(a).neq(extractConstAndExpr(b));
+        } else if (ps.OpLt && op instanceof ps.OpLt) {
+          return extractAttr(a).lt(extractConstAndExpr(b));
+        } else if (ps.OpLtEq && op instanceof ps.OpLtEq) {
+          return extractAttr(a).lte(extractConstAndExpr(b));
+        } else if (ps.OpGt && op instanceof ps.OpGt) {
+          return extractAttr(a).gt(extractConstAndExpr(b));
+        } else if (ps.OpGtEq && op instanceof ps.OpGtEq) {
+          return extractAttr(a).gte(extractConstAndExpr(b));
+        } else if (ps.OpMatch && op instanceof ps.OpMatch) {
+          return extractAttr(a).match(extractConstAndExpr(b));
+        } else if (ps.OpIn && op instanceof ps.OpIn) {
+          return extractAttr(a).in(extractConstAndExpr(b));
+        } else {
+          throw new Error("Unknown BinOp " + op);
+        }
+      }))
+      (curry(function (op, a) { // UnExpr
+        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+        if (ps.OpIsNull && op instanceof ps.OpIsNull) {
+          return extractAttr(a).isNull();
+        } else if (ps.OpIsNotNull && op instanceof ps.OpIsNotNull) {
+          return extractAttr(a).isNotNull();
+        } else {
+          throw new Error("Unknown UnOp " + op);
+        }
+      }))
+      (function (_) { throw new Error("ConstExpr is not of type Expr Bool") });
 
 
     var q = db.select.apply(db, selection);

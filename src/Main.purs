@@ -25,6 +25,27 @@ newtype Names ctx =
     , bag :: ctx (Nullable Foreign)
     }
 
+
+idNames id name age bag =
+  mkNames (Identity id) (Identity name) (Identity age) (Identity bag)
+
+
+mkNames id name age bag =
+  Names { id : id, name : name, age : age, bag : bag }
+
+
+data T3 a b c ctx =
+  T3 (ctx a) (ctx b) (ctx c)
+
+
+idT3 a b c =
+  mkT3 (Identity a) (Identity b) (Identity c)
+
+
+mkT3 = T3
+
+
+
 names :: LF.Table Names
 names = LF.Table "Names" constraints columnDescription
   where
@@ -38,8 +59,9 @@ names = LF.Table "Names" constraints columnDescription
         , bag : LF.column "bag"
         }
 
-bert :: Names Identity
-bert =
+
+bert1 :: Names Identity
+bert1 =
   idNames 1 "Bert" (toNullable (Just 42)) (toNullable (Just (toForeign "blah")))
 
 
@@ -48,12 +70,10 @@ alice =
   idNames 2 "Alice" (toNullable (Just 26)) (toNullable (Just (toForeign true)))
 
 
+bert2 :: Names Identity
+bert2 =
+  idNames 3 "Bert" (toNullable (Just 55)) (toNullable Nothing)
 
-idNames id name age bag =
-  mkNames (Identity id) (Identity name) (Identity age) (Identity bag)
-
-mkNames id name age bag =
-  Names { id : id, name : name, age : age, bag : bag }
 
 
 
@@ -95,10 +115,26 @@ query3 =
   LF.where_ (n.age .>. valNotNull 30) >>- \_ ->
   LF.select (Names n)
 
+{-
+query4 :: LF.Query (Names LF.Expr)
+query4 = LF.aggregate aggregator query
+  where
+    aggregator :: Names LF.Aggregate -> T3 LF.Expr
+    aggregator (Names n) =
+      mkT3 (LF.groupBy n.name) (LF.avg n.age) (LF.count n.bag)
+
+    query :: LF.Query (Names LF.Expr)
+    query =
+      LF.from names >>- \(Names n) ->
+      LF.where_ (n.age .>. LF.valNotNull 30) >>- \_ ->
+      LF.select (Names n)
+      -}
+
+
 main = launchAff do
   db <- LF.connect schema
   liftEff $ print "connected"
-  LF.insertOrReplace db schema names [ alice, bert ]
+  LF.insertOrReplace db schema names [ alice, bert1, bert2 ]
   liftEff $ print "inserted"
   result1 <- LF.runQuery db query1
   liftEff $ print (map name result1)
@@ -106,5 +142,5 @@ main = launchAff do
   liftEff $ print (map name result2)
   result3 <- LF.runQuery db query3
   liftEff $ print (map name result3)
-  --result <- LF.runQuery db schema query2
-  --liftEff $ print result
+--  result4 <- LF.runQuery db query4
+--  liftEff $ print (map name result4)
