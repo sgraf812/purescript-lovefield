@@ -2613,7 +2613,6 @@ var PS = { };
       if (queryState.offset != null) {
         q = q.skip(queryState.offset);
       }
-      console.log(q.explain());
       return q.exec()
         .then(function (rows) { return success(rows)(); })
         .catch(function (e) { return error(e)(); });

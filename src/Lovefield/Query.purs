@@ -23,7 +23,6 @@ import Data.Foreign
 import Data.Foreign.Index (prop)
 import Data.Foreign.Keys (keys)
 import Data.Function
-import Data.Functor.Compose
 import Data.Identity
 import Data.Tuple
 import Data.Date
@@ -59,7 +58,6 @@ type QueryState =
   { nextAlias :: Int
   , references :: Array TableReference
   , restrictions :: Array (Expr Boolean)
-  , leftOuterJoins :: Array (Expr Boolean)
   , groupings :: Array AttributeReference
   , orderings :: Array OrderExpr
   , limit :: Nullable Int
@@ -72,7 +70,6 @@ initialState =
   { nextAlias : 0
   , references : []
   , restrictions : []
-  , leftOuterJoins : []
   , groupings : []
   , orderings : []
   , limit : toNullable Nothing
@@ -98,6 +95,13 @@ addReference tableName = state impl
             })
 
 
+addRestriction :: Expr Boolean -> State QueryState Unit
+addRestriction expr = modify impl
+  where
+    impl state =
+      state { restrictions = expr : state.restrictions }
+
+
 newtype Query a
   = Query (State QueryState a)
 
@@ -119,7 +123,7 @@ from
    . (CanSwitchContext t)
   => Table t
   -> Query (t Expr)
-from (Table name _ cd) = Query $ do
+from tbl@(Table name _ cd) = Query $ do
   alias <- addReference name
   pure (switchContext (columnDescriptionToExpr alias) cd)
 
@@ -139,33 +143,8 @@ select expr =
 
 
 where_ :: Expr Boolean -> Query Unit
-where_ predicate = Query (modify impl)
-  where
-    impl state =
-      state { restrictions = predicate : state.restrictions }
-
-
-leftOuterJoin
-  :: forall t
-   . (CanSwitchContext t)
-  => Table t
-  -> (t Expr -> Expr Boolean)
-  -> Query (t (Compose Expr Boolean))
-leftOuterJoin (Table name _ cd) predicate = Query $ do
-  alias <- addReference name
-
-  let
-    expr =
-      switchContext (columnDescriptionToExpr alias) cd
-    pred =
-      predicate expr
-    nulledExpr =
-      switchContext (\(Expr expr) -> Compose (Expr (toNullable expr))) cd
-
-  modify \state ->
-    state { leftOuterJoins = pred : state.leftOuterJoins }
-
-  pure nulledExpr
+where_ predicate =
+  Query (addRestriction predicate)
 
 
 newtype Aggregate a
