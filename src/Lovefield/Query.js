@@ -19,23 +19,14 @@ function curry(fx) {
   };
 }
 
-exports.runQueryNative = function (
-  db,
-  selected,
-  froms,
-  wheres,
-  groupings,
-  orderings,
-  matchOnPrimExpr,
-  error,
-  success) {
+exports.runQueryNative = function (db, selected, queryState, matchOnPrimExpr, error, success) {
   return function () {
 
     // This is needed for repeated switching over ADTs
     var ps = PS["Lovefield.Internal.PrimExpr"] || {};
     var isCase = function (value, adtCase) {
       return adtCase // adtCase might be undefined if it was not emitted
-        && value instanceof adtCase
+        && value instanceof adtCase;
     };
 
     // 1. Get the aliases for from() in place.
@@ -44,9 +35,9 @@ exports.runQueryNative = function (
     var schema = db.getSchema();
 
     var aliases = [];
-    for (var i = 0; i < froms.length; i++) {
-      var f = froms[i];
-      aliases[f.alias] = schema.table(f.name).as('t' + f.alias);
+    for (var i = 0; i < queryState.references.length; i++) {
+      var r = queryState.references[i];
+      aliases[r.alias] = schema.table(r.name).as('t' + r.alias);
     }
 
     // Some auxiliary PrimExpr accessors
@@ -127,7 +118,7 @@ exports.runQueryNative = function (
     //    This also has to inspect PrimExprs, so it gets a little messy.
     //    Would love to also do this in PS, but this is the most comfy way.
 
-    var whereToLF = matchOnPrimExpr
+    var clauseForRestriction = matchOnPrimExpr
       (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
       (curry(function (op, a, b, c) { // TernExpr, there's only between
         if (isCase(op, ps.OpBetween)) {
@@ -172,7 +163,7 @@ exports.runQueryNative = function (
 
     // 4. Prepare grouping attributes. This is the easy part,
     //    The hard part is handled in the selection section.
-    var groupBys = groupings.map(function (grouping) {
+    var groupBys = queryState.groupings.map(function (grouping) {
       return aliases[grouping.alias][grouping.name];
     });
 
@@ -180,22 +171,22 @@ exports.runQueryNative = function (
     // Finally build and execute the query
     var q = db.select.apply(db, selection);
     q = q.from.apply(q, aliases);
-    if (wheres.length > 0) {
-      var clauses = wheres.map(whereToLF);
+    if (queryState.restrictions.length > 0) {
+      var clauses = queryState.restrictions.map(clauseForRestriction);
       q = q.where(clauses.length > 1 ? lf.op.and(clauses) : clauses[0]);
     }
     if (groupBys.length > 0) {
       q = q.groupBy.apply(q, groupBys);
     }
-    for (var i = 0; i < orderings.length; ++i) {
-      var o = orderings[i];
+    for (var i = 0; i < queryState.orderings.length; ++i) {
+      var ordering = queryState.orderings[i];
 
-      var op = o.value0; // This is either OpAsc or OpDesc
+      var op = ordering.value0; // This is either OpAsc or OpDesc
       var order = isCase(op, ps.OpAsc) ? lf.Order.ASC : lf.Order.DESC;
 
-      var expr = o.value1; // This might potentially not be an AttrExpr, I hope we get lucky.
+      var expr = ordering.value1; // This might potentially not be an AttrExpr, I hope we get lucky.
 
-      q = q.orderBy.apply(q, [extractAttr(expr), order]);
+      q = q.orderBy(extractAttr(expr), order);
     }
     return q.exec()
       .then(function (rows) { return success(rows)(); })

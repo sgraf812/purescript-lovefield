@@ -313,13 +313,10 @@ descending (Expr expr) = OrderExpr OpDesc expr
 
 foreign import runQueryNative
   :: forall recordOfExpr a eff
-   . Fn9
+   . Fn6
       Connection
       recordOfExpr
-      (Array TableReference)
-      (Array (Expr Boolean))
-      (Array AttributeReference)
-      (Array OrderExpr)
+      QueryState
       (forall r . PrimExprMatcher r)
       (Error -> Eff (db :: DB | eff) Unit)
       (Array a -> Eff (db :: DB | eff) Unit)
@@ -343,12 +340,5 @@ runQuery db (Query state) = result
       fst finalState
 
     result =
-      makeAff $ runFn9
-        runQueryNative
-          db
-          selected
-          qs.references
-          qs.restrictions
-          qs.groupings
-          qs.orderings
-          matchOnPrimExpr
+      makeAff $ runFn6
+        runQueryNative db selected qs matchOnPrimExpr

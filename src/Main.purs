@@ -184,5 +184,5 @@ main = launchAff do
   liftEff $ print (map name result6)
   -- query7 should not be possible. Maybe make AttrExpr a subtype? would help
   -- for something like query5, too.
-  result7 <- LF.runQuery db query7
-  liftEff $ print (map name result7)
+  --result7 <- LF.runQuery db query7
+  --liftEff $ print (map name result7)
