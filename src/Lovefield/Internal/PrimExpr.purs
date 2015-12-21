@@ -90,4 +90,3 @@ data AggrOp
   | AggrMin | AggrMax
   | AggrStdDev
   | AggrDistinct
-  | AggrGroup

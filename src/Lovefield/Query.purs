@@ -1,10 +1,11 @@
 module Lovefield.Query
-  ( Query(), from, (>>-), select, where_, aggregate
+  ( Query(), from, (>>-), select, where_, aggregate, orderBy
   , runQuery
   , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
   , matches, in_
   , Aggregate(), groupBy, count, sum, avg, geomMean
   , min, max, stdDev, distinct
+  , ascending, descending
   , EraseNullable
   , HasLiterals, val, valNotNull
   ) where
@@ -58,6 +59,7 @@ type QueryState =
   , references :: Array TableReference
   , restrictions :: Array (Expr Boolean)
   , groupings :: Array AttributeReference
+  , orderings :: Array OrderExpr
   }
 
 
@@ -67,6 +69,7 @@ initialState =
   , references : []
   , restrictions : []
   , groupings : []
+  , orderings : []
   }
 
 
@@ -296,14 +299,27 @@ distinct :: forall a . (Aggregate a) -> Expr a
 distinct = aggrExpr AggrDistinct
 
 
+orderBy :: Array OrderExpr -> Query Unit
+orderBy orderings = Query (modify (_ { orderings = orderings }))
+
+
+ascending :: forall a . Expr a -> OrderExpr
+ascending (Expr expr) = OrderExpr OpAsc expr
+
+
+descending :: forall a . Expr a -> OrderExpr
+descending (Expr expr) = OrderExpr OpDesc expr
+
+
 foreign import runQueryNative
   :: forall recordOfExpr a eff
-   . Fn8
+   . Fn9
       Connection
       recordOfExpr
       (Array TableReference)
       (Array (Expr Boolean))
       (Array AttributeReference)
+      (Array OrderExpr)
       (forall r . PrimExprMatcher r)
       (Error -> Eff (db :: DB | eff) Unit)
       (Array a -> Eff (db :: DB | eff) Unit)
@@ -327,11 +343,12 @@ runQuery db (Query state) = result
       fst finalState
 
     result =
-      makeAff $ runFn8
+      makeAff $ runFn9
         runQueryNative
           db
           selected
           qs.references
           qs.restrictions
           qs.groupings
+          qs.orderings
           matchOnPrimExpr

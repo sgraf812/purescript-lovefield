@@ -150,6 +150,20 @@ query5 = LF.aggregate aggregator2 (LF.aggregate aggregator1 query)
       LF.select (Names n)
 
 
+query6 :: LF.Query (Names LF.Expr)
+query6 =
+  LF.from names >>- \(Names n) ->
+  LF.orderBy [ LF.ascending n.age, LF.descending n.name ] >>- \_ ->
+  LF.select (Names n)
+
+
+query7 :: LF.Query (Names LF.Expr)
+query7 =
+  LF.from names >>- \(Names n) ->
+  LF.orderBy [ LF.ascending (val 7), LF.descending n.name ] >>- \_ ->
+  LF.select (Names n)
+
+
 main = launchAff do
   db <- LF.connect schema
   liftEff $ print "connected"
@@ -163,5 +177,12 @@ main = launchAff do
   liftEff $ print (map name result3)
   result4 <- LF.runQuery db query4
   liftEff $ print (map (\(T3 name avgAge bag) -> runIdentity name ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)
-  result5 <- LF.runQuery db query5
-  liftEff $ print (map (\(T3 name avgAge bag) -> show (runIdentity name) ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)
+  -- query5 is forbidden by lovefield
+  --result5 <- LF.runQuery db query5
+  --liftEff $ print (map (\(T3 name avgAge bag) -> show (runIdentity name) ++ " " ++ show (runIdentity avgAge) ++ " " ++ show (runIdentity bag)) result4)
+  result6 <- LF.runQuery db query6
+  liftEff $ print (map name result6)
+  -- query7 should not be possible. Maybe make AttrExpr a subtype? would help
+  -- for something like query5, too.
+  result7 <- LF.runQuery db query7
+  liftEff $ print (map name result7)

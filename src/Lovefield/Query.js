@@ -19,8 +19,24 @@ function curry(fx) {
   };
 }
 
-exports.runQueryNative = function (db, selected, froms, wheres, groupings, matchOnPrimExpr, error, success) {
+exports.runQueryNative = function (
+  db,
+  selected,
+  froms,
+  wheres,
+  groupings,
+  orderings,
+  matchOnPrimExpr,
+  error,
+  success) {
   return function () {
+
+    // This is needed for repeated switching over ADTs
+    var ps = PS["Lovefield.Internal.PrimExpr"] || {};
+    var isCase = function (value, adtCase) {
+      return adtCase // adtCase might be undefined if it was not emitted
+        && value instanceof adtCase
+    };
 
     // 1. Get the aliases for from() in place.
     //    We also need them for attribute access.
@@ -79,22 +95,21 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
         (function (_) { throw new Error("BinExpr is not AttrExpr") })
         (function (_) { throw new Error("UnExpr is not AttrExpr") })
         (curry(function (op, expr) {
-          var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-          if (ps.AggrCount && op instanceof ps.AggrCount) {
+          if (isCase(op, ps.AggrCount)) {
             return lf.fn.count(extractAttrOrAggr(expr));
-          } else if (ps.AggrSum && op instanceof ps.AggrSum) {
+          } else if (isCase(op, ps.AggrSum)) {
             return lf.fn.sum(extractAttrOrAggr(expr));
-          } else if (ps.AggrAvg && op instanceof ps.AggrAvg) {
+          } else if (isCase(op, ps.AggrAvg)) {
             return lf.fn.avg(extractAttrOrAggr(expr));
-          } else if (ps.AggrGeomMean && op instanceof ps.AggrGeomMean) {
+          } else if (isCase(op, ps.AggrGeomMean)) {
             return lf.fn.geommean(extractAttrOrAggr(expr));
-          } else if (ps.AggrMin && op instanceof ps.AggrMin) {
+          } else if (isCase(op, ps.AggrMin)) {
             return lf.fn.min(extractAttrOrAggr(expr));
-          } else if (ps.AggrMax && op instanceof ps.AggrMax) {
+          } else if (isCase(op, ps.AggrMax)) {
             return lf.fn.max(extractAttrOrAggr(expr));
-          } else if (ps.AggrStdDev && op instanceof ps.AggrStdDev) {
+          } else if (isCase(op, ps.AggrStdDev)) {
             return lf.fn.stddev(extractAttrOrAggr(expr));
-          } else if (ps.AggrDistinct && op instanceof ps.AggrDistinct) {
+          } else if (isCase(op, ps.AggrDistinct)) {
             return lf.fn.distinct(extractAttrOrAggr(expr));
           }
         }))
@@ -115,40 +130,37 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
     var whereToLF = matchOnPrimExpr
       (function (_) { throw new Error("AttrExpr is not of type Expr Bool") })
       (curry(function (op, a, b, c) { // TernExpr, there's only between
-        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-        if (ps.OpBetween && op instanceof ps.OpBetween) {
+        if (isCase(op, ps.OpBetween)) {
           return extractAttr(a).between(extractConst(b), extractConst(c));
         } else {
           throw new Error("Unknown TernOp " + op);
         }
       }))
       (curry(function (op, a, b) { // BinExpr
-        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-        if (ps.OpEq && op instanceof ps.OpEq) {
+        if (isCase(op, ps.OpEq)) {
           return extractAttr(a).eq(extractConstAndExpr(b));
-        } else if (ps.OpNotEq && op instanceof ps.OpNotEq) {
+        } else if (isCase(op, ps.OpNotEq)) {
           return extractAttr(a).neq(extractConstAndExpr(b));
-        } else if (ps.OpLt && op instanceof ps.OpLt) {
+        } else if (isCase(op, ps.OpLt)) {
           return extractAttr(a).lt(extractConstAndExpr(b));
-        } else if (ps.OpLtEq && op instanceof ps.OpLtEq) {
+        } else if (isCase(op, ps.OpLtEq)) {
           return extractAttr(a).lte(extractConstAndExpr(b));
-        } else if (ps.OpGt && op instanceof ps.OpGt) {
+        } else if (isCase(op, ps.OpGt)) {
           return extractAttr(a).gt(extractConstAndExpr(b));
-        } else if (ps.OpGtEq && op instanceof ps.OpGtEq) {
+        } else if (isCase(op, ps.OpGtEq)) {
           return extractAttr(a).gte(extractConstAndExpr(b));
-        } else if (ps.OpMatch && op instanceof ps.OpMatch) {
+        } else if (isCase(op, ps.OpMatch)) {
           return extractAttr(a).match(extractConstAndExpr(b));
-        } else if (ps.OpIn && op instanceof ps.OpIn) {
+        } else if (isCase(op, ps.OpIn)) {
           return extractAttr(a).in(extractConstAndExpr(b));
         } else {
           throw new Error("Unknown BinOp " + op);
         }
       }))
       (curry(function (op, a) { // UnExpr
-        var ps = PS["Lovefield.Internal.PrimExpr"] || {};
-        if (ps.OpIsNull && op instanceof ps.OpIsNull) {
+        if (isCase(op, ps.OpIsNull)) {
           return extractAttr(a).isNull();
-        } else if (ps.OpIsNotNull && op instanceof ps.OpIsNotNull) {
+        } else if (isCase(op, ps.OpIsNotNull)) {
           return extractAttr(a).isNotNull();
         } else {
           throw new Error("Unknown UnOp " + op);
@@ -165,6 +177,7 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
     });
 
 
+    // Finally build and execute the query
     var q = db.select.apply(db, selection);
     q = q.from.apply(q, aliases);
     if (wheres.length > 0) {
@@ -173,6 +186,16 @@ exports.runQueryNative = function (db, selected, froms, wheres, groupings, match
     }
     if (groupBys.length > 0) {
       q = q.groupBy.apply(q, groupBys);
+    }
+    for (var i = 0; i < orderings.length; ++i) {
+      var o = orderings[i];
+
+      var op = o.value0; // This is either OpAsc or OpDesc
+      var order = isCase(op, ps.OpAsc) ? lf.Order.ASC : lf.Order.DESC;
+
+      var expr = o.value1; // This might potentially not be an AttrExpr, I hope we get lucky.
+
+      q = q.orderBy.apply(q, [extractAttr(expr), order]);
     }
     return q.exec()
       .then(function (rows) { return success(rows)(); })
