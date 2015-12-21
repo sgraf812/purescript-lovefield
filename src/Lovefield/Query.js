@@ -188,6 +188,12 @@ exports.runQueryNative = function (db, selected, queryState, matchOnPrimExpr, er
 
       q = q.orderBy(extractAttr(expr), order);
     }
+    if (queryState.limit != null) {
+      q = q.limit(queryState.limit);
+    }
+    if (queryState.offset != null) {
+      q = q.skip(queryState.offset);
+    }
     return q.exec()
       .then(function (rows) { return success(rows)(); })
       .catch(function (e) { return error(e)(); });

@@ -1,5 +1,5 @@
 module Lovefield.Query
-  ( Query(), from, (>>-), select, where_, aggregate, orderBy
+  ( Query(), from, (>>-), select, where_, aggregate, orderBy, limit, offset
   , runQuery
   , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
   , matches, in_
@@ -60,6 +60,8 @@ type QueryState =
   , restrictions :: Array (Expr Boolean)
   , groupings :: Array AttributeReference
   , orderings :: Array OrderExpr
+  , limit :: Nullable Int
+  , offset :: Nullable Int
   }
 
 
@@ -70,6 +72,8 @@ initialState =
   , restrictions : []
   , groupings : []
   , orderings : []
+  , limit : toNullable Nothing
+  , offset : toNullable Nothing
   }
 
 
@@ -309,6 +313,15 @@ ascending (Expr expr) = OrderExpr OpAsc expr
 
 descending :: forall a . Expr a -> OrderExpr
 descending (Expr expr) = OrderExpr OpDesc expr
+
+
+-- TODO: Investigate if we shouldn't have limit :: Int -> Query a -> Query a.
+limit :: Int -> Query Unit
+limit n = Query (modify (_ { limit = toNullable (Just n) }))
+
+
+offset :: Int -> Query Unit
+offset n = Query (modify (_ { offset = toNullable (Just n) }))
 
 
 foreign import runQueryNative

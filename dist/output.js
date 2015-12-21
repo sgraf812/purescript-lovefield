@@ -1640,6 +1640,10 @@ var PS = { };
 
   exports["null"] = null;
 
+  exports.nullable = function(a, r, f) {
+      return a == null ? r : f(a);
+  };
+
   exports.notNull = function(x) {
       return x;
   }; 
@@ -1653,7 +1657,24 @@ var PS = { };
   var Data_Maybe = PS["Data.Maybe"];
   var Data_Function = PS["Data.Function"];     
   var toNullable = Data_Maybe.maybe($foreign["null"])($foreign.notNull);
-  exports["toNullable"] = toNullable;;
+  var toMaybe = function (n) {
+      return $foreign.nullable(n, Data_Maybe.Nothing.value, Data_Maybe.Just.create);
+  };
+  var showNullable = function (__dict_Show_0) {
+      return new Prelude.Show(function (n) {
+          var _1145 = toMaybe(n);
+          if (_1145 instanceof Data_Maybe.Nothing) {
+              return "null";
+          };
+          if (_1145 instanceof Data_Maybe.Just) {
+              return Prelude.show(__dict_Show_0)(_1145.value0);
+          };
+          throw new Error("Failed pattern match at Data.Nullable line 37, column 1 - line 42, column 1: " + [ _1145.constructor.name ]);
+      });
+  };
+  exports["toNullable"] = toNullable;
+  exports["toMaybe"] = toMaybe;
+  exports["showNullable"] = showNullable;;
  
 })(PS["Data.Nullable"] = PS["Data.Nullable"] || {});
 (function(exports) {
@@ -2586,6 +2607,12 @@ var PS = { };
 
         q = q.orderBy(extractAttr(expr), order);
       }
+      if (queryState.limit != null) {
+        q = q.limit(queryState.limit);
+      }
+      if (queryState.offset != null) {
+        q = q.skip(queryState.offset);
+      }
       return q.exec()
         .then(function (rows) { return success(rows)(); })
         .catch(function (e) { return error(e)(); });
@@ -2636,11 +2663,11 @@ var PS = { };
   };
   var EraseNullable = {};
   var $greater$greater$minus = function (__dict_CanSwitchContext_0) {
-      return function (_12) {
+      return function (_14) {
           return function (continuation) {
-              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_12)(function (_2) {
-                  var _47 = continuation(_2);
-                  return _47;
+              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_14)(function (_4) {
+                  var _54 = continuation(_4);
+                  return _54;
               }));
           };
       };
@@ -2651,29 +2678,53 @@ var PS = { };
   var val = function (dict) {
       return dict.val;
   };
-  var unAggregate = function (_14) {
-      return _14;
+  var unAggregate = function (_16) {
+      return _16;
   };                                      
   var select = function (expr) {
       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(expr);
   };
   var orderBy = function (orderings) {
       return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_1) {
-          var _49 = {};
-          for (var _50 in _1) {
-              if (_1.hasOwnProperty(_50)) {
-                  _49[_50] = _1[_50];
+          var _56 = {};
+          for (var _57 in _1) {
+              if (_1.hasOwnProperty(_57)) {
+                  _56[_57] = _1[_57];
               };
           };
-          _49.orderings = orderings;
-          return _49;
+          _56.orderings = orderings;
+          return _56;
+      });
+  };
+  var offset = function (n) {
+      return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_3) {
+          var _58 = {};
+          for (var _59 in _3) {
+              if (_3.hasOwnProperty(_59)) {
+                  _58[_59] = _3[_59];
+              };
+          };
+          _58.offset = Data_Nullable.toNullable(new Data_Maybe.Just(n));
+          return _58;
       });
   };
   var mkLiteral = function (a) {
       return new Lovefield_Internal_PrimExpr.ConstExpr(Lovefield_Internal_Exists.mkExists0(a));
   };
-  var intHasLiterals = new HasLiterals(mkLiteral, function (_82) {
-      return mkLiteral(Data_Nullable.toNullable(Data_Maybe.Just.create(_82)));
+  var limit = function (n) {
+      return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_2) {
+          var _60 = {};
+          for (var _61 in _2) {
+              if (_2.hasOwnProperty(_61)) {
+                  _60[_61] = _2[_61];
+              };
+          };
+          _60.limit = Data_Nullable.toNullable(new Data_Maybe.Just(n));
+          return _60;
+      });
+  };
+  var intHasLiterals = new HasLiterals(mkLiteral, function (_93) {
+      return mkLiteral(Data_Nullable.toNullable(Data_Maybe.Just.create(_93)));
   });
   var intEraseNullable = EraseNullable;
   var initialState = {
@@ -2681,11 +2732,13 @@ var PS = { };
       references: [  ], 
       restrictions: [  ], 
       groupings: [  ], 
-      orderings: [  ]
+      orderings: [  ], 
+      limit: Data_Nullable.toNullable(Data_Maybe.Nothing.value), 
+      offset: Data_Nullable.toNullable(Data_Maybe.Nothing.value)
   };
   var runQuery = function (db) {
-      return function (_21) {
-          var finalState = Control_Monad_State.runState(_21)(initialState);
+      return function (_23) {
+          var finalState = Control_Monad_State.runState(_23)(initialState);
           var qs = Data_Tuple.snd(finalState);
           var selected = Data_Tuple.fst(finalState);
           var result = Control_Monad_Aff.makeAff(Data_Function.runFn6($foreign.runQueryNative)(db)(selected)(qs)(Lovefield_Internal_PrimExpr.matchOnPrimExpr));
@@ -2693,8 +2746,8 @@ var PS = { };
       };
   };
   var groupBy = unAggregate;
-  var descending = function (_20) {
-      return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpDesc.value, _20);
+  var descending = function (_22) {
+      return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpDesc.value, _22);
   };                                    
   var columnDescriptionToExpr = function (alias) {
       return function (cd) {
@@ -2702,45 +2755,45 @@ var PS = { };
       };
   };                                       
   var binOp = function (op) {
-      return function (_16) {
-          return function (_17) {
-              return new Lovefield_Internal_PrimExpr.BinExpr(op, _16, _17);
+      return function (_18) {
+          return function (_19) {
+              return new Lovefield_Internal_PrimExpr.BinExpr(op, _18, _19);
           };
       };
   };                                                                     
   var $dot$less$dot = binOp(Lovefield_Internal_PrimExpr.OpLt.value);     
   var $dot$eq$eq$dot = binOp(Lovefield_Internal_PrimExpr.OpEq.value);
   var $dot$greater$dot = binOp(Lovefield_Internal_PrimExpr.OpGt.value);     
-  var ascending = function (_19) {
-      return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpAsc.value, _19);
+  var ascending = function (_21) {
+      return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpAsc.value, _21);
   };
   var aggregate = function (__dict_CanSwitchContext_3) {
       return function (aggregator) {
-          return function (_15) {
-              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_15)(function (_4) {
-                  var record2 = aggregator(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_3)(Aggregate)(_4));
+          return function (_17) {
+              return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(_17)(function (_6) {
+                  var record2 = aggregator(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_3)(Aggregate)(_6));
                   var groupings = Data_Array.mapMaybe(function (key) {
-                      var _61 = Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index.prop(key)(Data_Foreign.toForeign(record2))));
-                      if (_61 instanceof Lovefield_Internal_PrimExpr.AttrExpr) {
+                      var _72 = Data_Foreign.unsafeFromForeign(Data_Either_Unsafe.fromRight(Data_Foreign_Index.prop(key)(Data_Foreign.toForeign(record2))));
+                      if (_72 instanceof Lovefield_Internal_PrimExpr.AttrExpr) {
                           return new Data_Maybe.Just({
-                              alias: _61.value0, 
-                              name: _61.value1
+                              alias: _72.value0, 
+                              name: _72.value1
                           });
                       };
-                      if (_61 instanceof Lovefield_Internal_PrimExpr.AggrExpr) {
+                      if (_72 instanceof Lovefield_Internal_PrimExpr.AggrExpr) {
                           return Data_Maybe.Nothing.value;
                       };
                       return Data_Maybe.Nothing.value;
                   })(Data_Either.either(Prelude["const"]([  ]))(Prelude.id(Prelude.categoryFn))(Data_Foreign_Keys.keys(Data_Foreign.toForeign(record2))));
                   return Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_0) {
-                      var _66 = {};
-                      for (var _67 in _0) {
-                          if (_0.hasOwnProperty(_67)) {
-                              _66[_67] = _0[_67];
+                      var _77 = {};
+                      for (var _78 in _0) {
+                          if (_0.hasOwnProperty(_78)) {
+                              _77[_78] = _0[_78];
                           };
                       };
-                      _66.groupings = groupings;
-                      return _66;
+                      _77.groupings = groupings;
+                      return _77;
                   }))(function () {
                       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(record2);
                   });
@@ -2749,8 +2802,8 @@ var PS = { };
       };
   };
   var aggrExpr = function (op) {
-      return function (_18) {
-          return new Lovefield_Internal_PrimExpr.AggrExpr(op, _18);
+      return function (_20) {
+          return new Lovefield_Internal_PrimExpr.AggrExpr(op, _20);
       };
   };
   var avg = aggrExpr(Lovefield_Internal_PrimExpr.AggrAvg.value);
@@ -2762,14 +2815,14 @@ var PS = { };
   };
   var addRestriction = function (expr) {
       var impl = function (state) {
-          var _70 = {};
-          for (var _71 in state) {
-              if (state.hasOwnProperty(_71)) {
-                  _70[_71] = state[_71];
+          var _81 = {};
+          for (var _82 in state) {
+              if (state.hasOwnProperty(_82)) {
+                  _81[_82] = state[_82];
               };
           };
-          _70.restrictions = Data_Array[":"](expr)(state.restrictions);
-          return _70;
+          _81.restrictions = Data_Array[":"](expr)(state.restrictions);
+          return _81;
       };
       return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(impl);
   };
@@ -2783,23 +2836,23 @@ var PS = { };
               name: tableName
           };
           return new Data_Tuple.Tuple(state.nextAlias, (function () {
-              var _72 = {};
-              for (var _73 in state) {
-                  if (state.hasOwnProperty(_73)) {
-                      _72[_73] = state[_73];
+              var _83 = {};
+              for (var _84 in state) {
+                  if (state.hasOwnProperty(_84)) {
+                      _83[_84] = state[_84];
                   };
               };
-              _72.nextAlias = state.nextAlias + 1 | 0;
-              _72.references = Data_Array[":"](ref)(state.references);
-              return _72;
+              _83.nextAlias = state.nextAlias + 1 | 0;
+              _83.references = Data_Array[":"](ref)(state.references);
+              return _83;
           })());
       };
       return Control_Monad_State_Class.state(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(impl);
   };
   var from = function (__dict_CanSwitchContext_10) {
-      return function (_13) {
-          return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(addReference(_13.value0))(function (_3) {
-              return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_10)(columnDescriptionToExpr(_3))(_13.value2));
+      return function (_15) {
+          return Query(Prelude.bind(Control_Monad_State_Trans.bindStateT(Data_Identity.monadIdentity))(addReference(_15.value0))(function (_5) {
+              return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(Lovefield_CanSwitchContext.switchContext(__dict_CanSwitchContext_10)(columnDescriptionToExpr(_5))(_15.value2));
           }));
       };
   };
@@ -2817,6 +2870,8 @@ var PS = { };
   exports[".<."] = $dot$less$dot;
   exports[".==."] = $dot$eq$eq$dot;
   exports["runQuery"] = runQuery;
+  exports["offset"] = offset;
+  exports["limit"] = limit;
   exports["orderBy"] = orderBy;
   exports["aggregate"] = aggregate;
   exports["where_"] = where_;
@@ -2878,23 +2933,23 @@ var PS = { };
       return new Lovefield_Schema.Table("Names", constraints, columnDescription);
   })();
   var schema = new Lovefield_Schema.Schema("MyDB", 1, [ Lovefield_Internal_Exists.mkExists2(names) ]);
-  var name = function (_38) {
-      return Data_Identity.runIdentity(_38.name);
+  var name = function (_44) {
+      return Data_Identity.runIdentity(_44.name);
   };
   var mkT3 = T3.create;
   var t3CanSwitchContext = new Lovefield_CanSwitchContext.CanSwitchContext(function (f) {
-      return function (_40) {
-          return mkT3(f(_40.value0))(f(_40.value1))(f(_40.value2));
+      return function (_47) {
+          return mkT3(f(_47.value0))(f(_47.value1))(f(_47.value2));
       };
   });
   var mkNames = function (id) {
       return function (name_1) {
-          return function (age) {
+          return function (age_1) {
               return function (bag) {
                   return {
                       id: id, 
                       name: name_1, 
-                      age: age, 
+                      age: age_1, 
                       bag: bag
                   };
               };
@@ -2902,60 +2957,55 @@ var PS = { };
       };
   };
   var namesCanSwitchContext = new Lovefield_CanSwitchContext.CanSwitchContext(function (f) {
-      return function (_39) {
-          return mkNames(f(_39.id))(f(_39.name))(f(_39.age))(f(_39.bag));
+      return function (_46) {
+          return mkNames(f(_46.id))(f(_46.name))(f(_46.age))(f(_46.bag));
       };
   });
-  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_23) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_23.name)(_23.name)))(function (_22) {
-          return Lovefield_Query.select(_23);
+  var query1 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_25) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".==."](_25.name)(_25.name)))(function (_24) {
+          return Lovefield_Query.select(_25);
       });
   });
-  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_26) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_25) {
-          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".<."](_26.age)(_25.age)))(function (_24) {
-              return Lovefield_Query.select(_26);
+  var query2 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_28) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_27) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".<."](_28.age)(_27.age)))(function (_26) {
+              return Lovefield_Query.select(_28);
           });
       });
   });
-  var query3 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_28) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_28.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_27) {
-          return Lovefield_Query.select(_28);
+  var query3 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_30) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_30.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_29) {
+          return Lovefield_Query.select(_30);
       });
   });
   var query4 = (function () {
-      var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_30) {
-          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_30.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_29) {
-              return Lovefield_Query.select(_30);
-          });
-      });
-      var aggregator = function (_41) {
-          return mkT3(Lovefield_Query.groupBy(_41.name))(Lovefield_Query.avg(_41.age))(Lovefield_Query.count(_41.bag));
-      };
-      return Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator)(query);
-  })();
-  var query5 = (function () {
       var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_32) {
           return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_32.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_31) {
               return Lovefield_Query.select(_32);
           });
       });
-      var aggregator2 = function (_43) {
-          return mkT3(Lovefield_Query.count(_43.value0))(Lovefield_Query.avg(_43.value1))(Lovefield_Query.sum(Lovefield_Query.intEraseNullable)(Prelude.ringInt)(_43.value2));
+      var aggregator = function (_48) {
+          return mkT3(Lovefield_Query.groupBy(_48.name))(Lovefield_Query.avg(_48.age))(Lovefield_Query.count(_48.bag));
       };
-      var aggregator1 = function (_42) {
-          return mkT3(Lovefield_Query.groupBy(_42.name))(Lovefield_Query.avg(_42.age))(Lovefield_Query.count(_42.bag));
-      };
-      return Lovefield_Query.aggregate(t3CanSwitchContext)(aggregator2)(Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator1)(query));
+      return Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator)(query);
   })();
-  var query6 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_34) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(_34.age), Lovefield_Query.descending(_34.name) ]))(function (_33) {
-          return Lovefield_Query.select(_34);
+  var query6 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_36) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(_36.age), Lovefield_Query.descending(_36.name) ]))(function (_35) {
+          return Lovefield_Query.select(_36);
       });
   });
-  var query7 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_36) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(Lovefield_Query.val(Lovefield_Query.intHasLiterals)(7)), Lovefield_Query.descending(_36.name) ]))(function (_35) {
-          return Lovefield_Query.select(_36);
+  var query7 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_38) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(Lovefield_Query.val(Lovefield_Query.intHasLiterals)(7)), Lovefield_Query.descending(_38.name) ]))(function (_37) {
+          return Lovefield_Query.select(_38);
+      });
+  });
+  var query8 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_42) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(_42.age), Lovefield_Query.descending(_42.name) ]))(function (_41) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.limit(1))(function (_40) {
+              return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.offset(1))(function (_39) {
+                  return Lovefield_Query.select(_42);
+              });
+          });
       });
   });
   var idT3 = function (a) {
@@ -2967,9 +3017,9 @@ var PS = { };
   };
   var idNames = function (id) {
       return function (name_1) {
-          return function (age) {
+          return function (age_1) {
               return function (bag) {
-                  return mkNames(id)(name_1)(age)(bag);
+                  return mkNames(id)(name_1)(age_1)(bag);
               };
           };
       };
@@ -2977,24 +3027,27 @@ var PS = { };
   var bert2 = idNames(3)("Bert")(Data_Nullable.toNullable(new Data_Maybe.Just(55)))(Data_Nullable.toNullable(Data_Maybe.Nothing.value));
   var bert1 = idNames(1)("Bert")(Data_Nullable.toNullable(new Data_Maybe.Just(42)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign("blah"))));
   var alice = idNames(2)("Alice")(Data_Nullable.toNullable(new Data_Maybe.Just(26)))(Data_Nullable.toNullable(new Data_Maybe.Just(Data_Foreign.toForeign(true))));
-  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_11) {
+  var age = function (_45) {
+      return Data_Identity.runIdentity(_45.age);
+  };
+  var main = Control_Monad_Aff.launchAff(Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Connect.connect(schema))(function (_13) {
       return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("connected")))(function () {
-          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_11)(schema)(names)([ alice, bert1, bert2 ]))(function () {
+          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Insert.insertOrReplace(_13)(schema)(names)([ alice, bert1, bert2 ]))(function () {
               return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showString)("inserted")))(function () {
-                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query1))(function (_10) {
-                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_10))))(function () {
-                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query2))(function (_9) {
-                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_9))))(function () {
-                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query3))(function (_8) {
-                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_8))))(function () {
-                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query4))(function (_7) {
-                                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(function (_37) {
-                                                  return Data_Identity.runIdentity(_37.value0) + (" " + (Prelude.show(Prelude.showNumber)(Data_Identity.runIdentity(_37.value1)) + (" " + Prelude.show(Prelude.showInt)(Data_Identity.runIdentity(_37.value2)))));
-                                              })(_7))))(function () {
-                                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query6))(function (_6) {
-                                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_6))))(function () {
-                                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_11)(query7))(function (_5) {
-                                                              return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_5)));
+                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query1))(function (_12) {
+                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_12))))(function () {
+                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query2))(function (_11) {
+                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_11))))(function () {
+                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query3))(function (_10) {
+                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_10))))(function () {
+                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query4))(function (_9) {
+                                              return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(function (_43) {
+                                                  return Data_Identity.runIdentity(_43.value0) + (" " + (Prelude.show(Prelude.showNumber)(Data_Identity.runIdentity(_43.value1)) + (" " + Prelude.show(Prelude.showInt)(Data_Identity.runIdentity(_43.value2)))));
+                                              })(_9))))(function () {
+                                                  return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query6))(function (_8) {
+                                                      return Prelude.bind(Control_Monad_Aff.bindAff)(Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Prelude.showString))(Prelude.map(Prelude.functorArray)(name)(_8))))(function () {
+                                                          return Prelude.bind(Control_Monad_Aff.bindAff)(Lovefield_Query.runQuery(_13)(query8))(function (_7) {
+                                                              return Control_Monad_Eff_Class.liftEff(Control_Monad_Aff.monadEffAff)(Control_Monad_Eff_Console.print(Prelude.showArray(Data_Nullable.showNullable(Prelude.showInt)))(Prelude.map(Prelude.functorArray)(age)(_7)));
                                                           });
                                                       });
                                                   });
@@ -3010,9 +3063,24 @@ var PS = { };
           });
       });
   }));
+  var query5 = (function () {
+      var query = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_34) {
+          return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.where_(Lovefield_Query[".>."](_34.age)(Lovefield_Query.valNotNull(Lovefield_Query.intHasLiterals)(30))))(function (_33) {
+              return Lovefield_Query.select(_34);
+          });
+      });
+      var aggregator2 = function (_50) {
+          return mkT3(Lovefield_Query.count(_50.value0))(Lovefield_Query.avg(_50.value1))(Lovefield_Query.sum(Lovefield_Query.intEraseNullable)(Prelude.ringInt)(_50.value2));
+      };
+      var aggregator1 = function (_49) {
+          return mkT3(Lovefield_Query.groupBy(_49.name))(Lovefield_Query.avg(_49.age))(Lovefield_Query.count(_49.bag));
+      };
+      return Lovefield_Query.aggregate(t3CanSwitchContext)(aggregator2)(Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator1)(query));
+  })();
   exports["T3"] = T3;
   exports["Names"] = Names;
   exports["main"] = main;
+  exports["query8"] = query8;
   exports["query7"] = query7;
   exports["query6"] = query6;
   exports["query5"] = query5;
@@ -3020,6 +3088,7 @@ var PS = { };
   exports["query3"] = query3;
   exports["query2"] = query2;
   exports["query1"] = query1;
+  exports["age"] = age;
   exports["name"] = name;
   exports["schema"] = schema;
   exports["bert2"] = bert2;

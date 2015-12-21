@@ -96,6 +96,10 @@ name :: Names Identity -> String
 name (Names names) = runIdentity names.name
 
 
+age :: Names Identity -> Nullable Int
+age (Names names) = runIdentity names.age
+
+
 query1 :: LF.Query (Names LF.Expr)
 query1 =
   LF.from names >>- \(Names n) ->
@@ -164,6 +168,15 @@ query7 =
   LF.select (Names n)
 
 
+query8 :: LF.Query (Names LF.Expr)
+query8 =
+  LF.from names >>- \(Names n) ->
+  LF.orderBy [ LF.ascending n.age, LF.descending n.name ] >>- \_ ->
+  LF.limit 1 >>- \_ ->
+  LF.offset 1 >>- \_ ->
+  LF.select (Names n)
+
+
 main = launchAff do
   db <- LF.connect schema
   liftEff $ print "connected"
@@ -186,3 +199,5 @@ main = launchAff do
   -- for something like query5, too.
   --result7 <- LF.runQuery db query7
   --liftEff $ print (map name result7)
+  result8 <- LF.runQuery db query8
+  liftEff $ print (map age result8) -- Should be Bert aged 42
