@@ -2681,30 +2681,30 @@ var PS = { };
   var unAggregate = function (_16) {
       return _16;
   };                                      
+  var skip = function (n) {
+      return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_3) {
+          var _56 = {};
+          for (var _57 in _3) {
+              if (_3.hasOwnProperty(_57)) {
+                  _56[_57] = _3[_57];
+              };
+          };
+          _56.offset = Data_Nullable.toNullable(new Data_Maybe.Just(n));
+          return _56;
+      });
+  };
   var select = function (expr) {
       return Prelude.pure(Control_Monad_State_Trans.applicativeStateT(Data_Identity.monadIdentity))(expr);
   };
   var orderBy = function (orderings) {
       return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_1) {
-          var _56 = {};
-          for (var _57 in _1) {
-              if (_1.hasOwnProperty(_57)) {
-                  _56[_57] = _1[_57];
-              };
-          };
-          _56.orderings = orderings;
-          return _56;
-      });
-  };
-  var offset = function (n) {
-      return Control_Monad_State_Class.modify(Control_Monad_State_Trans.monadStateStateT(Data_Identity.monadIdentity))(function (_3) {
           var _58 = {};
-          for (var _59 in _3) {
-              if (_3.hasOwnProperty(_59)) {
-                  _58[_59] = _3[_59];
+          for (var _59 in _1) {
+              if (_1.hasOwnProperty(_59)) {
+                  _58[_59] = _1[_59];
               };
           };
-          _58.offset = Data_Nullable.toNullable(new Data_Maybe.Just(n));
+          _58.orderings = orderings;
           return _58;
       });
   };
@@ -2746,7 +2746,7 @@ var PS = { };
       };
   };
   var groupBy = unAggregate;
-  var descending = function (_22) {
+  var desc = function (_22) {
       return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpDesc.value, _22);
   };                                    
   var columnDescriptionToExpr = function (alias) {
@@ -2764,7 +2764,7 @@ var PS = { };
   var $dot$less$dot = binOp(Lovefield_Internal_PrimExpr.OpLt.value);     
   var $dot$eq$eq$dot = binOp(Lovefield_Internal_PrimExpr.OpEq.value);
   var $dot$greater$dot = binOp(Lovefield_Internal_PrimExpr.OpGt.value);     
-  var ascending = function (_21) {
+  var asc = function (_21) {
       return new Lovefield_Internal_PrimExpr.OrderExpr(Lovefield_Internal_PrimExpr.OpAsc.value, _21);
   };
   var aggregate = function (__dict_CanSwitchContext_3) {
@@ -2860,8 +2860,8 @@ var PS = { };
   exports["EraseNullable"] = EraseNullable;
   exports["valNotNull"] = valNotNull;
   exports["val"] = val;
-  exports["descending"] = descending;
-  exports["ascending"] = ascending;
+  exports["desc"] = desc;
+  exports["asc"] = asc;
   exports["avg"] = avg;
   exports["sum"] = sum;
   exports["count"] = count;
@@ -2870,7 +2870,7 @@ var PS = { };
   exports[".<."] = $dot$less$dot;
   exports[".==."] = $dot$eq$eq$dot;
   exports["runQuery"] = runQuery;
-  exports["offset"] = offset;
+  exports["skip"] = skip;
   exports["limit"] = limit;
   exports["orderBy"] = orderBy;
   exports["aggregate"] = aggregate;
@@ -2990,19 +2990,19 @@ var PS = { };
       return Lovefield_Query.aggregate(namesCanSwitchContext)(aggregator)(query);
   })();
   var query6 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_36) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(_36.age), Lovefield_Query.descending(_36.name) ]))(function (_35) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.asc(_36.age), Lovefield_Query.desc(_36.name) ]))(function (_35) {
           return Lovefield_Query.select(_36);
       });
   });
   var query7 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_38) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(Lovefield_Query.val(Lovefield_Query.intHasLiterals)(7)), Lovefield_Query.descending(_38.name) ]))(function (_37) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.asc(Lovefield_Query.val(Lovefield_Query.intHasLiterals)(7)), Lovefield_Query.desc(_38.name) ]))(function (_37) {
           return Lovefield_Query.select(_38);
       });
   });
   var query8 = Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.from(namesCanSwitchContext)(names))(function (_42) {
-      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.ascending(_42.age), Lovefield_Query.descending(_42.name) ]))(function (_41) {
+      return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.orderBy([ Lovefield_Query.asc(_42.age), Lovefield_Query.desc(_42.name) ]))(function (_41) {
           return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.limit(1))(function (_40) {
-              return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.offset(1))(function (_39) {
+              return Lovefield_Query[">>-"](namesCanSwitchContext)(Lovefield_Query.skip(1))(function (_39) {
                   return Lovefield_Query.select(_42);
               });
           });

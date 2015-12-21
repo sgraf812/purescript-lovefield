@@ -157,23 +157,23 @@ query5 = LF.aggregate aggregator2 (LF.aggregate aggregator1 query)
 query6 :: LF.Query (Names LF.Expr)
 query6 =
   LF.from names >>- \(Names n) ->
-  LF.orderBy [ LF.ascending n.age, LF.descending n.name ] >>- \_ ->
+  LF.orderBy [ LF.asc n.age, LF.desc n.name ] >>- \_ ->
   LF.select (Names n)
 
 
 query7 :: LF.Query (Names LF.Expr)
 query7 =
   LF.from names >>- \(Names n) ->
-  LF.orderBy [ LF.ascending (val 7), LF.descending n.name ] >>- \_ ->
+  LF.orderBy [ LF.asc (val 7), LF.desc n.name ] >>- \_ ->
   LF.select (Names n)
 
 
 query8 :: LF.Query (Names LF.Expr)
 query8 =
   LF.from names >>- \(Names n) ->
-  LF.orderBy [ LF.ascending n.age, LF.descending n.name ] >>- \_ ->
+  LF.orderBy [ LF.asc n.age, LF.desc n.name ] >>- \_ ->
   LF.limit 1 >>- \_ ->
-  LF.offset 1 >>- \_ ->
+  LF.skip 1 >>- \_ ->
   LF.select (Names n)
 
 

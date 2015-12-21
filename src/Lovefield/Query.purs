@@ -1,11 +1,11 @@
 module Lovefield.Query
-  ( Query(), from, (>>-), select, where_, aggregate, orderBy, limit, offset
+  ( Query(), from, (>>-), select, where_, aggregate, orderBy, limit, skip
   , runQuery
   , Expr(), (.==.), (./=.), (.<=.), (.<.), (.>=.), (.>.)
   , matches, in_
   , Aggregate(), groupBy, count, sum, avg, geomMean
   , min, max, stdDev, distinct
-  , ascending, descending
+  , asc, desc
   , EraseNullable
   , HasLiterals, val, valNotNull
   ) where
@@ -307,12 +307,12 @@ orderBy :: Array OrderExpr -> Query Unit
 orderBy orderings = Query (modify (_ { orderings = orderings }))
 
 
-ascending :: forall a . Expr a -> OrderExpr
-ascending (Expr expr) = OrderExpr OpAsc expr
+asc :: forall a . Expr a -> OrderExpr
+asc (Expr expr) = OrderExpr OpAsc expr
 
 
-descending :: forall a . Expr a -> OrderExpr
-descending (Expr expr) = OrderExpr OpDesc expr
+desc :: forall a . Expr a -> OrderExpr
+desc (Expr expr) = OrderExpr OpDesc expr
 
 
 -- TODO: Investigate if we shouldn't have limit :: Int -> Query a -> Query a.
@@ -320,8 +320,8 @@ limit :: Int -> Query Unit
 limit n = Query (modify (_ { limit = toNullable (Just n) }))
 
 
-offset :: Int -> Query Unit
-offset n = Query (modify (_ { offset = toNullable (Just n) }))
+skip :: Int -> Query Unit
+skip n = Query (modify (_ { offset = toNullable (Just n) }))
 
 
 foreign import runQueryNative
