@@ -255,7 +255,7 @@ aggrExpr op (Aggregate (Expr primExpr)) =
   Expr (AggrExpr op primExpr)
 
 
-class EraseNullable a b where
+class EraseNullable a b
 
 
 instance intEraseNullable :: EraseNullable Int Int
